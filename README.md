@@ -17,10 +17,16 @@ One self-contained `rodu` binary (Node, SQLite and the web board inside); nothin
 | Windows (Scoop) | `scoop bucket add thedevper https://github.com/TheDevper/scoop-bucket` then `scoop install rodu` |
 | Windows (PowerShell) | `irm https://raw.githubusercontent.com/TheDevper/rodu/v0.2.0/packaging/install.ps1 \| iex` |
 
-**Upgrading from Shoal:** Rodu was called Shoal until 0.2.0. Homebrew moves you over with
-`brew update && brew upgrade`; with Scoop, `scoop uninstall shoal` then `scoop install rodu`. In
-each workspace, rename the folder `.shoal` to `.rodu` and the file `shoal.db` inside it to
-`rodu.db`; `rodu` tells you where.
+**Upgrading from Shoal:** Rodu was called Shoal until 0.2.0.
+
+1. Stop any running `shoal web` and any agent running `shoal mcp`.
+2. Install Rodu: `brew update && brew upgrade` moves Homebrew over; with Scoop,
+   `scoop uninstall shoal` then `scoop install rodu`.
+3. In each workspace, rename the folder `.shoal` to `.rodu`, and inside it `shoal.db` to
+   `rodu.db`, plus `shoal.db-wal` and `shoal.db-shm` (if present, they hold recent changes) to
+   `rodu.db-wal` and `rodu.db-shm`. `rodu` points at any workspace you missed.
+4. In your agents' MCP config, change the command `shoal mcp` to `rodu mcp` and `SHOAL_DIR` to
+   `RODU_DIR`.
 
 The script URLs name a release tag, so they run that release's reviewed script; each release
 updates them. Then, in any folder you want to track work in:
@@ -114,7 +120,8 @@ SHASUMS256.txt) and must run on a Mac, which signs the macOS binaries. CI
 with the user-facing script on its own OS and smoke-tests it. Pushing a `vX.Y.Z` tag (matching
 `apps/cli/package.json` and `apps/cli/src/version.ts`) publishes a GitHub release. Then copy
 `rodu.rb` to the `TheDevper/homebrew-tap` repository (`Formula/rodu.rb`) and `rodu.json` to
-`TheDevper/scoop-bucket` (`bucket/rodu.json`).
+`TheDevper/scoop-bucket` (`bucket/rodu.json`). The tap's `formula_renames.json` maps the old
+`shoal` formula to `rodu`, so `brew upgrade` moves Shoal installs over.
 
 ## Development
 

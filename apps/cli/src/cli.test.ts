@@ -1,4 +1,12 @@
-import { mkdirSync, mkdtempSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RunningServer } from "@rodu/http";
@@ -56,9 +64,20 @@ describe("rodu cli", () => {
 
     expect(await run(["ls"], { ...io, cwd: sub })).toBe(1);
     expect(err.at(-1)).toContain(`${join(dir, ".shoal")} is from Shoal`);
-    expect(err.at(-1)).toContain("rename the folder .shoal to .rodu, then the file shoal.db");
+    expect(err.at(-1)).toContain("Stop any running shoal first");
+    expect(err.at(-1)).toContain("shoal.db-wal");
 
+    // init would otherwise start an empty workspace beside the old one.
+    expect(await run(["init", "--name", "alice", "--key", "DEMO"], io)).toBe(1);
+    expect(err.at(-1)).toContain("is from Shoal");
+    expect(existsSync(join(dir, ".rodu"))).toBe(false);
+
+    // Half moved: the folder is renamed but the database is not.
     renameSync(join(dir, ".shoal"), join(dir, ".rodu"));
+    expect(await run(["ls"], { ...io, cwd: sub })).toBe(1);
+    expect(err.at(-1)).toContain("still holds shoal.db");
+    expect(existsSync(join(dir, ".rodu", "rodu.db"))).toBe(false);
+
     renameSync(join(dir, ".rodu", "shoal.db"), join(dir, ".rodu", "rodu.db"));
     expect(await run(["ls"], { ...io, cwd: sub })).toBe(0);
   });

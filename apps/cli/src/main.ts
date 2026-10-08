@@ -65,18 +65,30 @@ interface Workspace {
   actor: Actor;
 }
 
+/** How to move a workspace made by Shoal, as Rodu was called until 0.2.0. */
+function moveFromShoal(dir: string): string {
+  return (
+    `Stop any running shoal first (shoal web, or an agent running shoal mcp). Then, in ${dir}, ` +
+    "rename the folder .shoal to .rodu, and inside it shoal.db to rodu.db, plus shoal.db-wal " +
+    "and shoal.db-shm to rodu.db-wal and rodu.db-shm if they exist (they hold recent changes)."
+  );
+}
+
+function refuseShoal(dir: string): void {
+  if (existsSync(join(dir, ".shoal", "config.json"))) {
+    throw new RoduError(
+      "conflict",
+      `${join(dir, ".shoal")} is from Shoal, Rodu's old name`,
+      moveFromShoal(dir),
+    );
+  }
+}
+
 function findDir(io: Io): string | null {
   if (io.env.RODU_DIR) return resolve(io.cwd, io.env.RODU_DIR);
   for (let dir = resolve(io.cwd); ; dir = dirname(dir)) {
     if (existsSync(join(dir, ".rodu", "config.json"))) return join(dir, ".rodu");
-    // Rodu was called Shoal until 0.2.0.
-    if (existsSync(join(dir, ".shoal", "config.json"))) {
-      throw new RoduError(
-        "conflict",
-        `${join(dir, ".shoal")} is from Shoal, Rodu's old name`,
-        `In ${dir}, rename the folder .shoal to .rodu, then the file shoal.db inside it to rodu.db`,
-      );
-    }
+    refuseShoal(dir);
     if (dirname(dir) === dir) return null;
   }
 }
@@ -88,6 +100,14 @@ function open(io: Io, viaAgent: boolean): Workspace {
       "not_found",
       "No Rodu workspace here",
       'Create one in this folder: rodu init --name <you> --key <KEY> --title "<project>"',
+    );
+  }
+  if (!existsSync(join(dir, "rodu.db")) && existsSync(join(dir, "shoal.db"))) {
+    throw new RoduError(
+      "conflict",
+      `${dir} still holds shoal.db from Shoal, Rodu's old name`,
+      "Stop any running shoal first. Then, in that folder, rename shoal.db to rodu.db, plus " +
+        "shoal.db-wal and shoal.db-shm to rodu.db-wal and rodu.db-shm if they exist.",
     );
   }
   const config = ConfigSchema.parse(JSON.parse(readFileSync(join(dir, "config.json"), "utf8")));
@@ -106,6 +126,7 @@ function init(io: Io, values: Record<string, string | boolean | undefined>): voi
       "e.g. rodu init --name your-name --key DEMO",
     );
   }
+  if (!io.env.RODU_DIR) refuseShoal(resolve(io.cwd));
   const dir = io.env.RODU_DIR ? resolve(io.cwd, io.env.RODU_DIR) : join(io.cwd, ".rodu");
   if (existsSync(join(dir, "config.json"))) {
     throw new RoduError("conflict", `A workspace already exists at ${dir}`);
