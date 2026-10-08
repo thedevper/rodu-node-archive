@@ -19,7 +19,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { build } from "esbuild";
 import { VERSION } from "../apps/cli/src/version.ts";
@@ -31,6 +31,17 @@ const WEB_DIST = join(ROOT, "apps/web/dist");
 const OUT = join(ROOT, "dist/release");
 const WORK = join(ROOT, "dist/sea");
 const CACHE = join(ROOT, "dist/.node-cache", NODE_VERSION);
+/** Licences a bundled dependency may have without a closer look. */
+const ALLOWED_LICENSES = new Set([
+  "MIT",
+  "ISC",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "Apache-2.0",
+  "0BSD",
+]);
+/** Shipped next to the binary in every archive. */
+const NOTICES = ["LICENSE", "NOTICE", "THIRD-PARTY-NOTICES.txt"];
 
 interface Target {
   name: string;
@@ -64,12 +75,15 @@ async function download(url: string, file: string): Promise<void> {
   writeFileSync(file, Buffer.from(await res.arrayBuffer()));
 }
 
-/** The node binary for a nodejs.org platform name, downloaded and verified on first use. */
+/**
+ * The node binary for a nodejs.org platform name, downloaded and verified on first use, with
+ * Node's LICENSE next to its folder.
+ */
 async function nodeBinary(platform: string): Promise<string> {
   const windows = platform.startsWith("win");
   const base = `node-${NODE_VERSION}-${platform}`;
   const binary = join(CACHE, base, windows ? "node.exe" : "bin/node");
-  if (existsSync(binary)) return binary;
+  if (existsSync(binary) && existsSync(join(CACHE, base, "LICENSE"))) return binary;
   mkdirSync(CACHE, { recursive: true });
   const sums = join(CACHE, "SHASUMS256.txt");
   if (!existsSync(sums)) {
@@ -89,9 +103,10 @@ async function nodeBinary(platform: string): Promise<string> {
     rmSync(file);
     throw new Error(`${archive}: sha256 ${actual}, expected ${expected}`);
   }
-  const member = windows ? `${base}/node.exe` : `${base}/bin/node`;
-  if (windows && process.platform === "linux") sh("unzip", ["-q", "-o", file, member, "-d", CACHE]);
-  else sh("tar", ["-xf", file, "-C", CACHE, member]);
+  const members = [windows ? `${base}/node.exe` : `${base}/bin/node`, `${base}/LICENSE`];
+  if (windows && process.platform === "linux")
+    sh("unzip", ["-q", "-o", file, ...members, "-d", CACHE]);
+  else sh("tar", ["-xf", file, "-C", CACHE, ...members]);
   rmSync(file);
   return binary;
 }
@@ -135,6 +150,69 @@ function webAssets(): Record<string, string> {
   return assets;
 }
 
+interface Dependency {
+  from: string;
+  version: string;
+  path: string;
+  dependencies?: Record<string, Dependency>;
+}
+
+/**
+ * The licences of everything inside the binaries: Node.js itself and the npm packages the CLI
+ * and the web board depend on in production. Their licences ask for the notice to travel with
+ * every copy. Fails on a package without a licence file or with a licence not yet reviewed.
+ */
+function thirdPartyNotices(nodeLicense: string): string {
+  const roots = JSON.parse(
+    execFileSync(
+      "pnpm",
+      [
+        "--filter",
+        "@shoal/cli",
+        "--filter",
+        "@shoal/web",
+        "list",
+        "--prod",
+        "--depth",
+        "Infinity",
+        "--json",
+      ],
+      { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+    ),
+  ) as { dependencies?: Record<string, Dependency> }[];
+  const packages = new Map<string, string>();
+  const walk = (deps: Record<string, Dependency> | undefined) => {
+    for (const dep of Object.values(deps ?? {})) {
+      const key = `${dep.from}@${dep.version}`;
+      // Workspace packages are Shoal's own code; their dependencies still count.
+      if (dep.path.split(sep).includes("node_modules")) {
+        if (packages.has(key)) continue;
+        packages.set(key, dep.path);
+      }
+      walk(dep.dependencies);
+    }
+  };
+  for (const root of roots) walk(root.dependencies);
+
+  const sections = [`Node.js ${NODE_VERSION}\n\n${nodeLicense.trim()}`];
+  for (const [key, dir] of [...packages].sort(([a], [b]) => a.localeCompare(b))) {
+    const { license } = JSON.parse(readFileSync(join(dir, "package.json"), "utf8")) as {
+      license?: string;
+    };
+    if (!license || !ALLOWED_LICENSES.has(license)) {
+      throw new Error(
+        `${key} is licensed ${license ?? "(none stated)"}: review it before shipping`,
+      );
+    }
+    const files = readdirSync(dir).filter((f) => /^(licen[cs]e|copying|notice)/i.test(f));
+    if (files.length === 0) throw new Error(`${key} (${license}) ships no licence file`);
+    const texts = files.sort().map((f) => readFileSync(join(dir, f), "utf8").trim());
+    sections.push(`${key} (${license})\n\n${texts.join("\n\n")}`);
+  }
+  const rule = `\n\n${"-".repeat(78)}\n\n`;
+  return `Shoal includes the following third-party software.${rule}${sections.join(rule)}\n`;
+}
+
 async function bundle(): Promise<string> {
   const out = join(WORK, "shoal.mjs");
   await build({
@@ -158,12 +236,14 @@ function pack(target: Target, binary: string): string {
   const file = join(OUT, name);
   rmSync(file, { force: true });
   const dir = join(WORK, target.name);
+  for (const notice of NOTICES) copyFileSync(join(WORK, notice), join(dir, notice));
+  const files = [target.exe, ...NOTICES];
   if (target.archive === "zip" && process.platform === "linux") {
-    sh("zip", ["-q", "-j", file, binary]);
+    sh("zip", ["-q", "-j", file, binary, ...NOTICES.map((n) => join(dir, n))]);
   } else if (target.archive === "zip") {
-    sh("tar", ["-a", "-cf", file, "-C", dir, target.exe]);
+    sh("tar", ["-a", "-cf", file, "-C", dir, ...files]);
   } else {
-    sh("tar", ["-czf", file, "-C", dir, target.exe]);
+    sh("tar", ["-czf", file, "-C", dir, ...files]);
   }
   return name;
 }
@@ -177,6 +257,7 @@ function formula(sums: Map<string, string>): string {
   desc "Local-first, AI-first kanban for small teams"
   homepage "https://github.com/${REPO}"
   version "${VERSION}"
+  license "Apache-2.0"
 
   on_macos do
     on_arm do
@@ -187,6 +268,7 @@ ${arch("darwin-x64")}    end
 
   def install
     bin.install "shoal"
+    prefix.install ${NOTICES.map((n) => `"${n}"`).join(", ")}
   end
 
   test do
@@ -203,6 +285,7 @@ function scoop(sums: Map<string, string>): string {
     version: VERSION,
     description: "Local-first, AI-first kanban for small teams",
     homepage: `https://github.com/${REPO}`,
+    license: "Apache-2.0",
     architecture: { "64bit": { url: url(VERSION), hash: sums.get("windows-x64") } },
     bin: "shoal.exe",
     checkver: "github",
@@ -236,6 +319,10 @@ async function main(): Promise<void> {
   const assets = webAssets();
   // The official build for this machine: distro and Homebrew builds may leave SEA support out.
   const builder = await nodeBinary(HOST);
+  const nodeLicense = readFileSync(join(CACHE, `node-${NODE_VERSION}-${HOST}`, "LICENSE"), "utf8");
+  copyFileSync(join(ROOT, "LICENSE"), join(WORK, "LICENSE"));
+  copyFileSync(join(ROOT, "NOTICE"), join(WORK, "NOTICE"));
+  writeFileSync(join(WORK, "THIRD-PARTY-NOTICES.txt"), thirdPartyNotices(nodeLicense));
 
   const sums = new Map<string, string>();
   const lines: string[] = [];
