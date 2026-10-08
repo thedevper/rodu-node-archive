@@ -5,7 +5,7 @@
 #
 # The URL names a release tag, so what runs is the reviewed script of that release.
 #
-# RODU_VERSION=0.1.0       a specific release instead of the latest
+# RODU_VERSION=0.2.0       a specific release instead of the latest
 # RODU_BIN_DIR=~/bin       where to put rodu (default ~/.local/bin)
 # RODU_DOWNLOAD_BASE=URL   where the release files are (for testing a local build)
 set -eu
@@ -48,12 +48,18 @@ expected=$(awk -v a="$archive" '$2 == a { print $1 }' "$tmp/SHA256SUMS")
 actual=$(shasum -a 256 "$tmp/$archive" | cut -d' ' -f1)
 [ "$expected" = "$actual" ] || fail "checksum mismatch for $archive"
 
-tar -xzf "$tmp/$archive" -C "$tmp" rodu
+notices="LICENSE NOTICE THIRD-PARTY-NOTICES.txt"
+# shellcheck disable=SC2086 # the names have no spaces
+tar -xzf "$tmp/$archive" -C "$tmp" rodu $notices
 mkdir -p "$BIN_DIR"
 # Replace by rename so a running rodu keeps its old file.
 mv -f "$tmp/rodu" "$BIN_DIR/rodu"
 chmod 755 "$BIN_DIR/rodu"
-echo "Installed $("$BIN_DIR/rodu" --version) to $BIN_DIR/rodu"
+# The licences of Rodu and of the Node.js and npm code built into it travel with the binary.
+share="${XDG_DATA_HOME:-$HOME/.local/share}/rodu"
+mkdir -p "$share"
+for n in $notices; do mv -f "$tmp/$n" "$share/$n"; done
+echo "Installed $("$BIN_DIR/rodu" --version) to $BIN_DIR/rodu (licences in $share)"
 
 case ":$PATH:" in
   *":$BIN_DIR:"*) ;;

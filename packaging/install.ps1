@@ -5,7 +5,7 @@
 # The URL names a release tag, so what runs is the reviewed script of that release, not
 # whatever is on main at the time.
 #
-# $env:RODU_VERSION = '0.1.0'       a specific release instead of the latest
+# $env:RODU_VERSION = '0.2.0'       a specific release instead of the latest
 # $env:RODU_INSTALL_DIR = 'C:\...'  where to put rodu.exe (default %LOCALAPPDATA%\Programs\rodu)
 # $env:RODU_DOWNLOAD_BASE = '...'   where the release files are (a URL or folder, for testing)
 
@@ -74,6 +74,10 @@
       throw
     }
     if ($old) { Remove-Item -Force -LiteralPath $old -ErrorAction SilentlyContinue }
+    # The licences of Rodu and of the Node.js and npm code built into it travel with the binary.
+    foreach ($n in 'LICENSE', 'NOTICE', 'THIRD-PARTY-NOTICES.txt') {
+      Copy-Item -Force (Join-Path $Tmp "out\$n") (Join-Path $InstallDir $n)
+    }
   } finally {
     Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue
   }

@@ -13,6 +13,9 @@ $after = [string]$key.GetValue('Path', '', 'DoNotExpandEnvironmentNames')
 if ($key.GetValueKind('Path') -ne 'ExpandString') { throw 'user PATH lost REG_EXPAND_SZ' }
 if ($after -notlike '*%USERPROFILE%\rodu-ci-marker*') { throw "user PATH was expanded: $after" }
 if ($after -notlike "*$env:RODU_INSTALL_DIR*") { throw 'install dir not on user PATH' }
+foreach ($n in 'LICENSE', 'NOTICE', 'THIRD-PARTY-NOTICES.txt') {
+  if (-not (Test-Path "$env:RODU_INSTALL_DIR\$n")) { throw "$n was not installed" }
+}
 # A second run upgrades in place while rodu.exe is running.
 $ws = New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\ws"
 Push-Location $ws; rodu init --name ci --key CI; Pop-Location
