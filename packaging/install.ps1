@@ -88,9 +88,20 @@
     if ($known -notcontains $InstallDir.TrimEnd('\')) {
       $kind = if ($raw -and $key.GetValueKind('Path') -eq [Microsoft.Win32.RegistryValueKind]::String) { 'String' } else { 'ExpandString' }
       $key.SetValue('Path', (($parts + $InstallDir) -join ';'), $kind)
-      # Tell running programs (Explorer, new terminals) that the environment changed.
-      [Environment]::SetEnvironmentVariable('SHOAL_INSTALL_PING', '1', 'User')
-      [Environment]::SetEnvironmentVariable('SHOAL_INSTALL_PING', $null, 'User')
+      # Tell running programs (Explorer, so terminals it starts) that the environment changed.
+      try {
+        if (-not ('ShoalInstall.Env' -as [type])) {
+          Add-Type -Namespace ShoalInstall -Name Env -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+public static extern System.IntPtr SendMessageTimeout(System.IntPtr hWnd, uint msg, System.UIntPtr wParam, string lParam, uint flags, uint timeout, out System.UIntPtr result);
+'@
+        }
+        $result = [UIntPtr]::Zero
+        # HWND_BROADCAST, WM_SETTINGCHANGE, "Environment", SMTO_ABORTIFHUNG, 5 s
+        [void][ShoalInstall.Env]::SendMessageTimeout([IntPtr]0xffff, 0x1a, [UIntPtr]::Zero, 'Environment', 2, 5000, [ref]$result)
+      } catch {
+        Write-Host 'Sign out and back in (or restart Explorer) if new terminals do not find shoal.'
+      }
       Write-Host "Added $InstallDir to your PATH (new terminals pick it up)."
     }
   } finally {
