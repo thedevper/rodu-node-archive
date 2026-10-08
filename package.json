@@ -1,0 +1,24 @@
+{
+  "name": "shoal",
+  "private": true,
+  "type": "module",
+  "description": "Open-source, AI-first, local-first work management: kanban, scrum and knowledge with MCP built in.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "vitest run",
+    "check": "pnpm typecheck && pnpm lint && pnpm test",
+    "shoal": "node apps/cli/src/main.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "^24.0.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}

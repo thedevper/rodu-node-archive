@@ -1,0 +1,17 @@
+{
+  "name": "@shoal/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "@shoal/core": "workspace:*",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@shoal/store-sqlite": "workspace:*"
+  }
+}

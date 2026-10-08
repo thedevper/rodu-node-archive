@@ -1,0 +1,16 @@
+{
+  "name": "@shoal/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "shoal": "./src/main.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "@shoal/core": "workspace:*",
+    "@shoal/mcp": "workspace:*",
+    "@shoal/store-sqlite": "workspace:*",
+    "zod": "4.6.5"
+  }
+}
