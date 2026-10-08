@@ -118,6 +118,12 @@ pnpm typecheck && pnpm lint && pnpm test
 pnpm test:e2e     # builds the board and drives it in your installed Chrome
 ```
 
+## Contributing
+
+Every commit needs a `Signed-off-by` line (`git commit -s`): see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
-To be decided before the first public release.
+[Apache License 2.0](LICENSE). Copyright 2026 TheDevper. The license does not grant use of the
+Shoal name. The release archives also carry `THIRD-PARTY-NOTICES.txt` for Node.js and the npm
+packages built into the binary.
