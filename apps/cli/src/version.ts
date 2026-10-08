@@ -1,2 +1,2 @@
 // Kept equal to apps/cli/package.json by scripts/build-binaries.ts, which refuses a mismatch.
-export const VERSION = "0.1.0";
+export const VERSION = "0.1.1";
