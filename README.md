@@ -20,8 +20,9 @@ One self-contained `rodu` binary (Node, SQLite and the web board inside); nothin
 **Upgrading from Shoal:** Rodu was called Shoal until 0.2.0.
 
 1. Stop any running `shoal web` and any agent running `shoal mcp`.
-2. Install Rodu: `brew update && brew upgrade` moves Homebrew over; with Scoop,
-   `scoop uninstall shoal` then `scoop install rodu`.
+2. Install Rodu. Homebrew 7 trusts tap formulae one by one, so trust the renamed formula once,
+   then upgrade: `brew update && brew trust --formula thedevper/tap/rodu && brew upgrade`. With
+   Scoop: `scoop uninstall shoal`, then `scoop install rodu`.
 3. In each workspace, rename the folder `.shoal` to `.rodu`, and inside it `shoal.db` to
    `rodu.db`, plus `shoal.db-wal` and `shoal.db-shm` (if present, they hold recent changes) to
    `rodu.db-wal` and `rodu.db-shm`. `rodu` points at any workspace you missed.
