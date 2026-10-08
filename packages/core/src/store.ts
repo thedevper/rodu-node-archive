@@ -22,7 +22,8 @@ export interface SearchResult {
  * Methods are synchronous: every implementation keeps a local replica in-process.
  */
 export interface Store {
-  transaction<T>(fn: () => T): T;
+  /** `"read"` takes a snapshot without the write lock; omit it for anything that writes. */
+  transaction<T>(fn: () => T, mode?: "read"): T;
 
   insertPrincipal(principal: Principal): void;
   /** Looks up by id, then by name (case-insensitive). */
@@ -43,6 +44,13 @@ export interface Store {
   nextItemNumber(collectionId: string): number;
   /** Highest rank in the collection, to append new items at the end. */
   lastRank(collectionId: string): string | null;
+  /** Nearest rank strictly above or below `rank` in the collection, ignoring item `exceptId`. */
+  adjacentRank(
+    collectionId: string,
+    rank: string,
+    side: "above" | "below",
+    exceptId: string,
+  ): string | null;
   insertItem(item: Item): void;
   getItem(id: string): Item | null;
   getItemByKey(key: string): Item | null;

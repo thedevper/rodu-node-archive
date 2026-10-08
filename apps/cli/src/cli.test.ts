@@ -1,6 +1,7 @@
-import { mkdtempSync, rmSync, statSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { RunningServer } from "@shoal/http";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type Io, run } from "./main.ts";
 
@@ -58,6 +59,31 @@ describe("shoal cli", () => {
     expect(await run(["ls", "--bogus"], io)).toBe(1);
     expect(err.at(-1)).toContain("--bogus");
     expect(err.at(-1)).toContain("Usage: shoal");
+  });
+
+  it("serves the board with a token link", async () => {
+    await run(["init", "--name", "alice", "--key", "MED"], io);
+    expect(await run(["web"], { ...io, env: { SHOAL_WEB_DIST: "missing-dist" } })).toBe(1);
+    expect(err.at(-1)).toContain("pnpm build:web");
+
+    const dist = join(dir, "dist");
+    mkdirSync(dist);
+    writeFileSync(join(dist, "index.html"), "<title>Shoal</title>");
+    let server: RunningServer | undefined;
+    const code = await run(["web", "--port", "0"], {
+      ...io,
+      env: { SHOAL_WEB_DIST: dist },
+      onWebServer: (s) => {
+        server = s;
+      },
+    });
+    expect(code).toBe(0);
+    const link = out.find((l) => l.startsWith("Open: "))?.slice("Open: ".length) ?? "";
+    expect(link).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/#token=[A-Za-z0-9_-]{43}$/);
+    const [base, token] = link.split("#token=");
+    const me = await fetch(`${base}api/me`, { headers: { Authorization: `Bearer ${token}` } });
+    expect(await me.json()).toEqual({ name: "alice" });
+    await server?.close();
   });
 
   it("rejects a bad --limit without a stack trace", async () => {

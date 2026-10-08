@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { type Actor, itemLine, ShoalError, ShoalService } from "@shoal/core";
+import { type RunningServer, startWebServer } from "@shoal/http";
 import { createShoalMcpServer } from "@shoal/mcp";
 import { SqliteStore } from "@shoal/store-sqlite";
 import { z } from "zod";
@@ -16,6 +18,7 @@ const USAGE = `Usage: shoal <command> [options]
   show <key>                 item with its context
   mv <key> <status>          move an item, e.g. shoal mv MED-3 "In Progress"
   mcp                        serve MCP over stdio for your agent
+  web [--port 4870]          open the kanban board in your browser (local only)
 
 The workspace is the nearest .shoal directory, or $SHOAL_DIR.`;
 
@@ -31,7 +34,12 @@ export interface Io {
   env: Record<string, string | undefined>;
   out: (line: string) => void;
   err: (line: string) => void;
+  /** Receives the running web server, so tests can stop it. */
+  onWebServer?: (server: RunningServer) => void;
 }
+
+const DEFAULT_WEB_DIST = resolve(dirname(fileURLToPath(import.meta.url)), "../../web/dist");
+const DEFAULT_WEB_PORT = 4870;
 
 interface Workspace {
   dir: string;
@@ -119,9 +127,43 @@ function parseOptions(argv: string[]) {
       assignee: { type: "string" },
       collection: { type: "string", short: "c" },
       limit: { type: "string" },
+      port: { type: "string" },
       help: { type: "boolean", short: "h" },
     },
   });
+}
+
+async function serveWeb(io: Io, portOption: string | undefined): Promise<void> {
+  const distDir = io.env.SHOAL_WEB_DIST ? resolve(io.cwd, io.env.SHOAL_WEB_DIST) : DEFAULT_WEB_DIST;
+  if (!existsSync(join(distDir, "index.html"))) {
+    throw new ShoalError("not_found", "The web UI is not built", "Run: pnpm build:web");
+  }
+  const port = portOption === undefined ? DEFAULT_WEB_PORT : Number(portOption);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new ShoalError("invalid", "--port must be a whole number from 0 to 65535");
+  }
+  const ws = open(io, false);
+  let server: RunningServer;
+  try {
+    server = await startWebServer({ service: ws.service, actor: ws.actor, port, distDir });
+  } catch (error) {
+    ws.store.close();
+    if ((error as NodeJS.ErrnoException).code === "EADDRINUSE") {
+      throw new ShoalError("conflict", `Port ${port} is in use`, "Pick another with --port");
+    }
+    throw error;
+  }
+  const stop = async () => {
+    await server.close();
+    ws.store.close();
+  };
+  process.once("SIGINT", () => void stop());
+  process.once("SIGTERM", () => void stop());
+  io.out(`Shoal board for ${ws.dir}`);
+  // The token rides in the fragment, which browsers never send to the server.
+  io.out(`Open: ${server.url}#token=${server.token}`);
+  io.out("Local only. Press Ctrl+C to stop.");
+  io.onWebServer?.({ ...server, close: stop });
 }
 
 export async function run(argv: string[], io: Io): Promise<number> {
@@ -153,6 +195,10 @@ export async function run(argv: string[], io: Io): Promise<number> {
     }
     if (command === "mcp") {
       await serveMcp(io);
+      return 0;
+    }
+    if (command === "web") {
+      await serveWeb(io, values.port);
       return 0;
     }
     const ws = open(io, false);

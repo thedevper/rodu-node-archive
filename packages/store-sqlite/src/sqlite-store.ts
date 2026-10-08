@@ -243,10 +243,11 @@ export class SqliteStore implements Store {
     return Number(this.db.prepare(sql).run(...params).changes);
   }
 
-  transaction<T>(fn: () => T): T {
+  transaction<T>(fn: () => T, mode?: "read"): T {
     const outer = this.depth === 0;
     const savepoint = `sp${this.depth}`;
-    this.db.exec(outer ? "BEGIN IMMEDIATE" : `SAVEPOINT ${savepoint}`);
+    const begin = mode === "read" ? "BEGIN" : "BEGIN IMMEDIATE";
+    this.db.exec(outer ? begin : `SAVEPOINT ${savepoint}`);
     this.depth++;
     try {
       const result = fn();
@@ -369,6 +370,19 @@ export class SqliteStore implements Store {
     return optStr(
       this.one("SELECT max(rank) AS r FROM items WHERE collection_id = ?", collectionId)?.r,
     );
+  }
+
+  adjacentRank(
+    collectionId: string,
+    rank: string,
+    side: "above" | "below",
+    exceptId: string,
+  ): string | null {
+    const sql =
+      side === "above"
+        ? "SELECT max(rank) AS r FROM items WHERE collection_id = ? AND rank < ? AND id != ?"
+        : "SELECT min(rank) AS r FROM items WHERE collection_id = ? AND rank > ? AND id != ?";
+    return optStr(this.one(sql, collectionId, rank, exceptId)?.r);
   }
 
   insertItem(i: Item): void {

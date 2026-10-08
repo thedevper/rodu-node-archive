@@ -1,7 +1,15 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
-    "includes": ["**", "!**/node_modules", "!**/.shoal", "!pnpm-lock.yaml"]
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/.shoal",
+      "!pnpm-lock.yaml",
+      "!**/dist",
+      "!**/test-results",
+      "!**/playwright-report"
+    ]
   },
   "formatter": {
     "indentStyle": "space",

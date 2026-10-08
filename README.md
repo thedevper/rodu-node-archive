@@ -4,7 +4,7 @@ Local-first, AI-first work tracking: kanban, sprints and (soon) docs for small t
 Your data lives on your machine; teams sync through transports they own. Agents are first-class
 users through MCP.
 
-> Status: v0 scaffold. Single-user, local SQLite, CLI + MCP over stdio. Sync, UI and docs come later.
+> Status: v0. Single-user, local SQLite; CLI, MCP over stdio and a local web board. Sync and docs come later.
 
 ## Quick start
 
@@ -21,6 +21,18 @@ pnpm shoal mv MED-1 "In Progress"
 
 `init` creates `.shoal/` (database and `config.json`) in the current directory. Commands use the
 nearest `.shoal/` above the working directory, or `$SHOAL_DIR`.
+
+## Web board
+
+```sh
+pnpm build:web          # once, and after UI changes
+pnpm shoal web          # prints http://127.0.0.1:4870/#token=...
+```
+
+Open the printed link. Drag cards between columns to change status (workflow rules apply and
+refusals show how to fix them), drag within a column to reorder, filter with JQL-lite, and click a
+card to edit it or comment. The server listens on `127.0.0.1` only and every API call needs the
+per-run token; see [`packages/http`](packages/http/README.md) for the API and security contract.
 
 ## Use it from an agent (MCP)
 
@@ -56,12 +68,15 @@ collection, cycle, parent, created, updated, due.
 | `packages/query` | JQL-lite parser and SQL compiler |
 | `packages/store-sqlite` | Local store on `node:sqlite` with FTS5 |
 | `packages/mcp` | MCP server |
+| `packages/http` | Local JSON API for the web board |
+| `apps/web` | React kanban board (Vite) |
 | `apps/cli` | `shoal` command |
 
 ## Development
 
 ```sh
 pnpm typecheck && pnpm lint && pnpm test
+pnpm test:e2e     # builds the board and drives it in your installed Chrome
 ```
 
 ## License

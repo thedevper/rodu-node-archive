@@ -16,5 +16,12 @@
     "isolatedModules": true,
     "skipLibCheck": true
   },
-  "include": ["packages/*/src", "apps/*/src", "vitest.config.ts"]
+  "include": [
+    "packages/*/src",
+    "apps/*/src",
+    "apps/web/e2e",
+    "apps/web/playwright.config.ts",
+    "vitest.config.ts"
+  ],
+  "exclude": ["apps/web/src"]
 }

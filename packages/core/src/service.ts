@@ -412,6 +412,63 @@ export class ShoalService {
     return this.store.transaction(() => this.writeItem(uuidv7(), actor, item, changes));
   }
 
+  /**
+   * Reorders an item: `after` is the item that should sit just above it, `before` the one just
+   * below. With only one given, the item goes right next to it.
+   */
+  moveItem(actor: Actor, ref: string, to: { after?: string | null; before?: string | null }): Item {
+    // Read neighbours inside the transaction so another process cannot move them in between.
+    return this.store.transaction(() => this.placeItem(actor, ref, to));
+  }
+
+  private placeItem(
+    actor: Actor,
+    ref: string,
+    to: { after?: string | null; before?: string | null },
+  ): Item {
+    const item = this.item(ref);
+    const neighbour = (r: string | null | undefined): Item | null => {
+      if (!r) return null;
+      const other = this.item(r);
+      if (other.collectionId !== item.collectionId) {
+        throw new ShoalError(
+          "invalid",
+          `${other.key} is not in the same collection as ${item.key}`,
+        );
+      }
+      if (other.id === item.id)
+        throw new ShoalError("invalid", "An item cannot move next to itself");
+      return other;
+    };
+    const after = neighbour(to.after);
+    const before = neighbour(to.before);
+    if (!after && !before) throw new ShoalError("invalid", "Say where to move: after or before");
+    if (after && before && after.rank >= before.rank) {
+      throw new ShoalError(
+        "conflict",
+        `${after.key} is not above ${before.key} any more`,
+        "Reload the list and try again",
+      );
+    }
+    // With one side given, the other is whatever sits next to it now, so ranks never collide.
+    const id = item.collectionId;
+    const low =
+      after?.rank ?? (before ? this.store.adjacentRank(id, before.rank, "above", item.id) : null);
+    const high =
+      before?.rank ?? (after ? this.store.adjacentRank(id, after.rank, "below", item.id) : null);
+    let rank: string;
+    try {
+      rank = rankBetween(low, high);
+    } catch {
+      throw new ShoalError(
+        "conflict",
+        "The list changed while moving",
+        "Reload the list and try again",
+      );
+    }
+    return this.writeItem(uuidv7(), actor, item, { rank });
+  }
+
   transition(actor: Actor, ref: string, to: string): Item {
     const item = this.item(ref);
     const collection = this.collection(item.collectionId);

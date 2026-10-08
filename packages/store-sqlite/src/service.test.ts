@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { type Actor, ShoalError, ShoalService } from "@shoal/core";
 import { beforeEach, describe, expect, it } from "vitest";
 import { SqliteStore } from "./sqlite-store.ts";
@@ -147,6 +151,44 @@ describe("items", () => {
   });
 });
 
+describe("ordering", () => {
+  const order = () => service.search(alice, "ORDER BY rank").items.map((i) => i.key);
+
+  beforeEach(() => {
+    service.createItems(alice, "MED", [{ title: "A" }, { title: "B" }, { title: "C" }]);
+  });
+
+  it("moves an item to the top, bottom and between neighbours", () => {
+    service.moveItem(alice, "MED-3", { before: "MED-1" });
+    expect(order()).toEqual(["MED-3", "MED-1", "MED-2"]);
+    service.moveItem(alice, "MED-3", { after: "MED-2" });
+    expect(order()).toEqual(["MED-1", "MED-2", "MED-3"]);
+    const moved = service.moveItem(alice, "MED-3", { after: "MED-1", before: "MED-2" });
+    expect(order()).toEqual(["MED-1", "MED-3", "MED-2"]);
+    expect(moved.version).toBe(4);
+    expect(service.store.listEvents(moved.id).at(-1)?.action).toBe("item.update");
+  });
+
+  it("fills in the real neighbour when only one side is given", () => {
+    service.moveItem(alice, "MED-3", { after: "MED-1" });
+    expect(order()).toEqual(["MED-1", "MED-3", "MED-2"]);
+    service.moveItem(alice, "MED-1", { before: "MED-2" });
+    expect(order()).toEqual(["MED-3", "MED-1", "MED-2"]);
+  });
+
+  it("refuses neighbours from another collection or out of order", () => {
+    service.createCollection(alice, { key: "OPS", name: "Ops" });
+    service.createItems(alice, "OPS", [{ title: "X" }]);
+    expect(errorOf(() => service.moveItem(alice, "MED-1", { before: "OPS-1" })).code).toBe(
+      "invalid",
+    );
+    expect(
+      errorOf(() => service.moveItem(alice, "MED-1", { after: "MED-3", before: "MED-2" })).code,
+    ).toBe("conflict");
+    expect(errorOf(() => service.moveItem(alice, "MED-1", {})).code).toBe("invalid");
+  });
+});
+
 describe("workflow", () => {
   it("walks an item through the dev workflow under the rules", () => {
     service.createItems(alice, "MED", [{ title: "Ship it" }]);
@@ -222,5 +264,23 @@ describe("cycles", () => {
     expect(
       errorOf(() => service.updateItem(alice, "MED-2", { cycle: "Sprint 1" })).message,
     ).toContain("closed");
+  });
+});
+
+describe("transactions", () => {
+  it("reads while another connection holds the write lock", () => {
+    const dir = mkdtempSync(join(tmpdir(), "shoal-store-"));
+    const path = join(dir, "shoal.db");
+    const store = new SqliteStore(path);
+    const writer = new DatabaseSync(path);
+    try {
+      writer.exec("PRAGMA busy_timeout = 0; BEGIN IMMEDIATE");
+      expect(store.transaction(() => store.listPrincipals(), "read")).toEqual([]);
+    } finally {
+      writer.exec("ROLLBACK");
+      writer.close();
+      store.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
