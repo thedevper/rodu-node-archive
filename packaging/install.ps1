@@ -53,7 +53,9 @@
     $exe = Join-Path $InstallDir 'shoal.exe'
     # A running shoal.exe (say, `shoal mcp` under an agent) cannot be overwritten but can be
     # renamed. Each run uses a fresh name, since an older renamed copy may still be running too.
+    # Only names this installer makes (32 hex digits), never a user's own file in a chosen folder.
     Get-ChildItem -LiteralPath $InstallDir -Filter 'shoal.exe.old-*' |
+      Where-Object { $_.Name -cmatch '^shoal\.exe\.old-[0-9a-f]{32}$' } |
       Remove-Item -Force -ErrorAction SilentlyContinue
     $old = $null
     if (Test-Path -LiteralPath $exe) {
