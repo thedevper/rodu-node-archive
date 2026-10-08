@@ -78,7 +78,13 @@ describe("rodu cli", () => {
     expect(err.at(-1)).toContain("still holds shoal.db");
     expect(existsSync(join(dir, ".rodu", "rodu.db"))).toBe(false);
 
+    // Recent changes left behind in the old WAL file would be lost.
     renameSync(join(dir, ".rodu", "shoal.db"), join(dir, ".rodu", "rodu.db"));
+    writeFileSync(join(dir, ".rodu", "shoal.db-wal"), "");
+    expect(await run(["ls"], { ...io, cwd: sub })).toBe(1);
+    expect(err.at(-1)).toContain("still holds shoal.db-wal");
+
+    rmSync(join(dir, ".rodu", "shoal.db-wal"));
     expect(await run(["ls"], { ...io, cwd: sub })).toBe(0);
   });
 

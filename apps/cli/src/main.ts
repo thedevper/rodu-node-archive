@@ -102,10 +102,13 @@ function open(io: Io, viaAgent: boolean): Workspace {
       'Create one in this folder: rodu init --name <you> --key <KEY> --title "<project>"',
     );
   }
-  if (!existsSync(join(dir, "rodu.db")) && existsSync(join(dir, "shoal.db"))) {
+  const leftover = ["shoal.db", "shoal.db-wal", "shoal.db-shm"].find((f) =>
+    existsSync(join(dir, f)),
+  );
+  if (leftover && (leftover !== "shoal.db" || !existsSync(join(dir, "rodu.db")))) {
     throw new RoduError(
       "conflict",
-      `${dir} still holds shoal.db from Shoal, Rodu's old name`,
+      `${dir} still holds ${leftover} from Shoal, Rodu's old name`,
       "Stop any running shoal first. Then, in that folder, rename shoal.db to rodu.db, plus " +
         "shoal.db-wal and shoal.db-shm to rodu.db-wal and rodu.db-shm if they exist.",
     );

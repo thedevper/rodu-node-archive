@@ -120,8 +120,9 @@ SHASUMS256.txt) and must run on a Mac, which signs the macOS binaries. CI
 with the user-facing script on its own OS and smoke-tests it. Pushing a `vX.Y.Z` tag (matching
 `apps/cli/package.json` and `apps/cli/src/version.ts`) publishes a GitHub release. Then copy
 `rodu.rb` to the `TheDevper/homebrew-tap` repository (`Formula/rodu.rb`) and `rodu.json` to
-`TheDevper/scoop-bucket` (`bucket/rodu.json`). The tap's `formula_renames.json` maps the old
-`shoal` formula to `rodu`, so `brew upgrade` moves Shoal installs over.
+`TheDevper/scoop-bucket` (`bucket/rodu.json`). The tap keeps `formula_renames.json` mapping
+`shoal` to `rodu` (added with 0.2.0, when `Formula/shoal.rb` was removed), so `brew upgrade` moves
+Shoal installs over.
 
 ## Development
 
