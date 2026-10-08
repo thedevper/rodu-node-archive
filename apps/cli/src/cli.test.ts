@@ -101,6 +101,21 @@ describe("rodu cli", () => {
     expect(await run(["init", "--name", "alice", "--key", "DEMO"], { ...io, env })).toBe(1);
     expect(err.at(-1)).toContain("is from Shoal");
     expect(existsSync(join(dir, ".rodu"))).toBe(false);
+
+    // From a subfolder, too: the old workspace above would otherwise be shadowed.
+    const sub = mkdtempSync(join(dir, "sub-"));
+    expect(await run(["init", "--name", "alice", "--key", "DEMO"], { ...io, cwd: sub })).toBe(1);
+    expect(err.at(-1)).toContain("is from Shoal");
+    expect(existsSync(join(sub, ".rodu"))).toBe(false);
+  });
+
+  it("lets init nest a workspace under a Rodu one that sits below an old Shoal one", async () => {
+    const mid = mkdtempSync(join(dir, "mid-"));
+    expect(await run(["init", "--name", "alice", "--key", "MID"], { ...io, cwd: mid })).toBe(0);
+    mkdirSync(join(dir, ".shoal"));
+    writeFileSync(join(dir, ".shoal", "config.json"), "{}");
+    const sub = mkdtempSync(join(mid, "sub-"));
+    expect(await run(["init", "--name", "alice", "--key", "SUB"], { ...io, cwd: sub })).toBe(0);
   });
 
   it("prints domain errors with hints and a non-zero exit code", async () => {
