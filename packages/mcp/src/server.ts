@@ -65,7 +65,7 @@ function run(fn: () => unknown): CallToolResult {
   }
 }
 
-const ref = z.string().min(1).max(100).describe("Item key such as MED-12, or its id");
+const ref = z.string().min(1).max(100).describe("Item key such as DEMO-12, or its id");
 
 export function createShoalMcpServer(service: ShoalService, actor: Actor): McpServer {
   const server = new McpServer({ name: "shoal", version: VERSION }, { instructions: INSTRUCTIONS });
@@ -120,7 +120,7 @@ export function createShoalMcpServer(service: ShoalService, actor: Actor): McpSe
       title: "Create items",
       description: `Create up to ${service.maxBatch} items in one collection, atomically. Pass an idempotency_key so a retry does not create duplicates.`,
       inputSchema: {
-        collection: z.string().min(1).describe("Collection key, e.g. MED"),
+        collection: z.string().min(1).describe("Collection key, e.g. DEMO"),
         items: z.array(NewItemSchema).min(1).max(service.maxBatch),
         idempotency_key: z.string().min(1).max(100).optional(),
       },

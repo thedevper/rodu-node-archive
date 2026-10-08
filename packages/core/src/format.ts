@@ -12,7 +12,7 @@ export interface ContextParts {
   comments: { comment: Comment; author: string; via: string | null }[];
 }
 
-/** One-line summary of an item: `MED-12 [In Progress] (high) Title`. */
+/** One-line summary of an item: `DEMO-12 [In Progress] (high) Title`. */
 export function itemLine(item: Item): string {
   const priority = item.priority === "none" ? "" : ` (${item.priority})`;
   return `${item.key} [${item.status}]${priority} ${item.title}`;

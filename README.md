@@ -21,7 +21,7 @@ The script URLs name a release tag, so they run that release's reviewed script; 
 updates them. Then, in any folder you want to track work in:
 
 ```sh
-shoal init --name alice --key MED --title "Medical app"
+shoal init --name your-name --key DEMO --title "Demo project"
 shoal web        # opens the board in your browser
 ```
 
@@ -36,11 +36,11 @@ Requires Node 24+ (runs TypeScript directly, no build step) and pnpm.
 
 ```sh
 pnpm install
-pnpm shoal init --name alice --key MED --title "Medical app"
+pnpm shoal init --name your-name --key DEMO --title "Demo project"
 pnpm shoal add Fix login crash --type bug --priority urgent --assignee me
 pnpm shoal ls "assignee = me() ORDER BY priority"
-pnpm shoal show MED-1
-pnpm shoal mv MED-1 "In Progress"
+pnpm shoal show DEMO-1
+pnpm shoal mv DEMO-1 "In Progress"
 ```
 
 `init` creates `.shoal/` (database and `config.json`) in the current directory. Commands use the

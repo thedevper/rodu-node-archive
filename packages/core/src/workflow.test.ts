@@ -4,7 +4,7 @@ import type { Link } from "./model.ts";
 import { DEV_WORKFLOW } from "./presets.ts";
 import { checkTransition, validateWorkflow } from "./workflow.ts";
 
-const base = { key: "MED-1", status: "Todo", assigneeId: null, estimate: null };
+const base = { key: "DEMO-1", status: "Todo", assigneeId: null, estimate: null };
 const pr: Link = {
   id: "l1",
   fromItemId: "i1",

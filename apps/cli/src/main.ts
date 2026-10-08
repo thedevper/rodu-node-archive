@@ -19,7 +19,7 @@ const USAGE = `Usage: shoal <command> [options]
   add <title> [--type bug] [--priority high] [--assignee me] [--collection KEY]
   ls [query]                 list items (JQL-lite, e.g. "assignee = me() ORDER BY priority")
   show <key>                 item with its context
-  mv <key> <status>          move an item, e.g. shoal mv MED-3 "In Progress"
+  mv <key> <status>          move an item, e.g. shoal mv DEMO-3 "In Progress"
   mcp                        serve MCP over stdio for your agent
   web [--port 4870] [--no-open]   open the kanban board in your browser (local only)
   --version                  print the version
@@ -95,7 +95,7 @@ function init(io: Io, values: Record<string, string | boolean | undefined>): voi
     throw new ShoalError(
       "invalid",
       "init needs --name and --key",
-      "e.g. shoal init --name alice --key MED",
+      "e.g. shoal init --name your-name --key DEMO",
     );
   }
   const dir = io.env.SHOAL_DIR ? resolve(io.cwd, io.env.SHOAL_DIR) : join(io.cwd, ".shoal");
