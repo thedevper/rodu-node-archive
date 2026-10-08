@@ -130,7 +130,12 @@ function init(io: Io, values: Record<string, string | boolean | undefined>): voi
       "e.g. rodu init --name your-name --key DEMO",
     );
   }
-  refuseShoal(resolve(io.cwd));
+  // An old workspace above, not shadowed by a Rodu one, would look lost behind a new empty one.
+  for (let up = resolve(io.cwd); ; up = dirname(up)) {
+    if (existsSync(join(up, ".rodu", "config.json"))) break;
+    refuseShoal(up);
+    if (dirname(up) === up) break;
+  }
   const dir = io.env.RODU_DIR ? resolve(io.cwd, io.env.RODU_DIR) : join(io.cwd, ".rodu");
   if (existsSync(join(dir, "config.json"))) {
     throw new RoduError("conflict", `A workspace already exists at ${dir}`);
