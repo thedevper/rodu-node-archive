@@ -68,7 +68,7 @@ jobs:
           version=$(node -p "require('./apps/cli/package.json').version")
           [ "$GITHUB_REF_NAME" = "v$version" ] || { echo "tag $GITHUB_REF_NAME != v$version"; exit 1; }
           # The install commands in the README must point at this release's scripts.
-          [ "$(grep -c "TheDevper/shoal/v$version/packaging/install" README.md)" = 2 ] ||
+          [ "$(grep -c "TheDevper/rodu/v$version/packaging/install" README.md)" = 2 ] ||
             { echo "README install URLs do not name v$version"; exit 1; }
       - run: pnpm build:binaries
       - uses: actions/upload-artifact@v4
@@ -105,11 +105,11 @@ jobs:
       - name: Install with install.sh and smoke test
         if: runner.os == 'macOS'
         run: |
-          export SHOAL_VERSION=$(node -p "require('./apps/cli/package.json').version")
-          export SHOAL_BIN_DIR="$RUNNER_TEMP/bin"
-          export SHOAL_DOWNLOAD_BASE="file://$GITHUB_WORKSPACE/dist/release"
+          export RODU_VERSION=$(node -p "require('./apps/cli/package.json').version")
+          export RODU_BIN_DIR="$RUNNER_TEMP/bin"
+          export RODU_DOWNLOAD_BASE="file://$GITHUB_WORKSPACE/dist/release"
           sh packaging/install.sh
-          node scripts/smoke-binary.ts "$RUNNER_TEMP/bin/shoal"
+          node scripts/smoke-binary.ts "$RUNNER_TEMP/bin/rodu"
       - name: Install with irm | iex on Windows PowerShell 5.1 and smoke test
         if: matrix.shell == 'powershell'
         shell: powershell

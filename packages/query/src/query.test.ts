@@ -1,17 +1,17 @@
-import { ShoalError } from "@shoal/core";
+import { RoduError } from "@rodu/core";
 import { describe, expect, it } from "vitest";
 import { parseQuery, toSql } from "./index.ts";
 
 const ctx = { me: "user-1", now: new Date("2026-10-08T00:00:00.000Z") };
 
-function errorOf(fn: () => unknown): ShoalError {
+function errorOf(fn: () => unknown): RoduError {
   try {
     fn();
   } catch (e) {
-    if (e instanceof ShoalError) return e;
+    if (e instanceof RoduError) return e;
     throw e;
   }
-  throw new Error("expected a ShoalError");
+  throw new Error("expected a RoduError");
 }
 
 describe("parseQuery", () => {

@@ -1,5 +1,5 @@
 {
-  "name": "@shoal/mcp",
+  "name": "@rodu/mcp",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -8,10 +8,10 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",
-    "@shoal/core": "workspace:*",
+    "@rodu/core": "workspace:*",
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@shoal/store-sqlite": "workspace:*"
+    "@rodu/store-sqlite": "workspace:*"
   }
 }

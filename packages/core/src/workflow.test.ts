@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ShoalError } from "./errors.ts";
+import { RoduError } from "./errors.ts";
 import type { Link } from "./model.ts";
 import { DEV_WORKFLOW } from "./presets.ts";
 import { checkTransition, validateWorkflow } from "./workflow.ts";
@@ -13,14 +13,14 @@ const pr: Link = {
   createdAt: "2026-10-08T00:00:00.000Z",
 };
 
-function errorOf(fn: () => unknown): ShoalError {
+function errorOf(fn: () => unknown): RoduError {
   try {
     fn();
   } catch (e) {
-    if (e instanceof ShoalError) return e;
+    if (e instanceof RoduError) return e;
     throw e;
   }
-  throw new Error("expected a ShoalError");
+  throw new Error("expected a RoduError");
 }
 
 describe("DEV_WORKFLOW", () => {

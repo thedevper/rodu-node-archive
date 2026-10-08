@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 
-// End-to-end probe of `shoal web`: a throwaway workspace, the real CLI and server, and the built UI.
+// End-to-end probe of `rodu web`: a throwaway workspace, the real CLI and server, and the built UI.
 // Requires `pnpm build:web` first.
 
 const CLI = resolve(import.meta.dirname, "../../cli/src/main.ts");
@@ -12,9 +12,9 @@ let dir: string;
 let server: ChildProcess;
 let link: string;
 
-function shoal(...args: string[]): string {
+function rodu(...args: string[]): string {
   return execFileSync(process.execPath, [CLI, ...args], {
-    env: { ...process.env, SHOAL_DIR: join(dir, ".shoal") },
+    env: { ...process.env, RODU_DIR: join(dir, ".rodu") },
     encoding: "utf8",
   });
 }
@@ -22,13 +22,13 @@ function shoal(...args: string[]): string {
 test.describe.configure({ mode: "serial" });
 
 test.beforeAll(async () => {
-  dir = mkdtempSync(join(tmpdir(), "shoal-e2e-"));
-  shoal("init", "--name", "alice", "--key", "DEMO", "--title", "Demo project");
-  shoal("add", "Fix login crash", "--type", "bug", "--priority", "urgent", "--assignee", "me");
-  shoal("add", "Write onboarding doc");
-  shoal("add", "Export PDF report", "--priority", "high");
+  dir = mkdtempSync(join(tmpdir(), "rodu-e2e-"));
+  rodu("init", "--name", "alice", "--key", "DEMO", "--title", "Demo project");
+  rodu("add", "Fix login crash", "--type", "bug", "--priority", "urgent", "--assignee", "me");
+  rodu("add", "Write onboarding doc");
+  rodu("add", "Export PDF report", "--priority", "high");
   server = spawn(process.execPath, [CLI, "web", "--port", "0"], {
-    env: { ...process.env, SHOAL_DIR: join(dir, ".shoal") },
+    env: { ...process.env, RODU_DIR: join(dir, ".rodu") },
     stdio: ["ignore", "pipe", "inherit"],
   });
   link = await new Promise<string>((done, fail) => {
@@ -38,7 +38,7 @@ test.beforeAll(async () => {
       const match = /Open: (\S+)/.exec(output);
       if (match?.[1]) done(match[1]);
     });
-    server.once("exit", (code) => fail(new Error(`shoal web exited with ${code}`)));
+    server.once("exit", (code) => fail(new Error(`rodu web exited with ${code}`)));
   });
 });
 
@@ -79,7 +79,7 @@ test("moves an assigned card to another column", async ({ page }) => {
   await page.goto(link);
   await card(page, "DEMO-1").dragTo(column(page, "In Progress"));
   await expect.poll(() => keysIn(page, "In Progress")).toEqual(["DEMO-1"]);
-  expect(shoal("ls", "status = 'In Progress'").trim()).toBe(
+  expect(rodu("ls", "status = 'In Progress'").trim()).toBe(
     "DEMO-1 [In Progress] (urgent) Fix login crash",
   );
 });
@@ -131,7 +131,7 @@ test("adds a card straight into a column, or not at all when the workflow refuse
   await doing.getByLabel("New item title").fill("Nobody owns this");
   await doing.getByLabel("New item title").press("Enter");
   await expect(page.getByRole("alert")).toContainText("assign it first");
-  expect(shoal("ls", 'title ~ "Nobody"').trim()).toBe("");
+  expect(rodu("ls", 'title ~ "Nobody"').trim()).toBe("");
 });
 
 test("a failing detail load reports once instead of retrying forever", async ({ page }) => {

@@ -2,26 +2,26 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { type Actor, ShoalError, ShoalService } from "@shoal/core";
+import { type Actor, RoduError, RoduService } from "@rodu/core";
 import { beforeEach, describe, expect, it } from "vitest";
 import { SqliteStore } from "./sqlite-store.ts";
 
-let service: ShoalService;
+let service: RoduService;
 let alice: Actor;
 let agent: Actor;
 
-function errorOf(fn: () => unknown): ShoalError {
+function errorOf(fn: () => unknown): RoduError {
   try {
     fn();
   } catch (e) {
-    if (e instanceof ShoalError) return e;
+    if (e instanceof RoduError) return e;
     throw e;
   }
-  throw new Error("expected a ShoalError");
+  throw new Error("expected a RoduError");
 }
 
 beforeEach(() => {
-  service = new ShoalService(new SqliteStore(), { maxBatch: 5 });
+  service = new RoduService(new SqliteStore(), { maxBatch: 5 });
   const human = service.createPrincipal({ name: "alice", kind: "human" });
   const bot = service.createPrincipal({ name: "alice-claude", kind: "agent", ownerId: human.id });
   alice = { principalId: human.id, viaAgentId: null };
@@ -97,7 +97,7 @@ describe("items", () => {
   });
 
   it("evaluates relative dates against the service clock", () => {
-    const fixed = new ShoalService(new SqliteStore(), {
+    const fixed = new RoduService(new SqliteStore(), {
       now: () => new Date("2020-01-02T00:00:00Z"),
     });
     const owner = fixed.createPrincipal({ name: "bob", kind: "human" });
@@ -274,12 +274,12 @@ describe("cycles", () => {
 
 describe("moving with corrupt ranks", () => {
   it("reports a broken rank as an internal error, not as a stale list", () => {
-    const dir = mkdtempSync(join(tmpdir(), "shoal-store-"));
-    const path = join(dir, "shoal.db");
+    const dir = mkdtempSync(join(tmpdir(), "rodu-store-"));
+    const path = join(dir, "rodu.db");
     const store = new SqliteStore(path);
     const raw = new DatabaseSync(path);
     try {
-      const svc = new ShoalService(store);
+      const svc = new RoduService(store);
       const human = svc.createPrincipal({ name: "bob", kind: "human" });
       const bob = { principalId: human.id, viaAgentId: null };
       svc.createCollection(bob, { key: "ops", name: "Ops" });
@@ -296,7 +296,7 @@ describe("moving with corrupt ranks", () => {
         return null;
       })();
       expect(thrown).toBeInstanceOf(Error);
-      expect(thrown).not.toBeInstanceOf(ShoalError);
+      expect(thrown).not.toBeInstanceOf(RoduError);
     } finally {
       raw.close();
       store.close();
@@ -307,8 +307,8 @@ describe("moving with corrupt ranks", () => {
 
 describe("transactions", () => {
   it("reads while another connection holds the write lock", () => {
-    const dir = mkdtempSync(join(tmpdir(), "shoal-store-"));
-    const path = join(dir, "shoal.db");
+    const dir = mkdtempSync(join(tmpdir(), "rodu-store-"));
+    const path = join(dir, "rodu.db");
     const store = new SqliteStore(path);
     const writer = new DatabaseSync(path);
     try {

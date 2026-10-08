@@ -1,4 +1,4 @@
-import { ShoalError } from "@shoal/core";
+import { RoduError } from "@rodu/core";
 
 // JQL-lite: `assignee = me() AND status IN ("Todo", "In Progress") ORDER BY priority`.
 // The UI filter bar, the command bar and the MCP search tool all parse into this one AST.
@@ -41,9 +41,9 @@ const MAX_QUERY_LENGTH = 2000;
 const WORD = /[A-Za-z0-9_.:-]/;
 const UNIT_MS = { m: 60_000, h: 3_600_000, d: 86_400_000, w: 604_800_000 } as const;
 
-export function queryError(message: string, pos: number, source: string): ShoalError {
+export function queryError(message: string, pos: number, source: string): RoduError {
   const caret = `${source}\n${" ".repeat(pos)}^`;
-  return new ShoalError("invalid", `Query error at ${pos}: ${message}`, caret);
+  return new RoduError("invalid", `Query error at ${pos}: ${message}`, caret);
 }
 
 function tokenize(source: string): Token[] {
@@ -220,7 +220,7 @@ class Parser {
     return token;
   }
 
-  private error(message: string, token: Token): ShoalError {
+  private error(message: string, token: Token): RoduError {
     return queryError(message, token.pos, this.source);
   }
 }
@@ -228,7 +228,7 @@ class Parser {
 /** Parses a JQL-lite query; an empty string matches everything. */
 export function parseQuery(source: string): Query {
   if (source.length > MAX_QUERY_LENGTH) {
-    throw new ShoalError("limit", `Query is longer than ${MAX_QUERY_LENGTH} characters`);
+    throw new RoduError("limit", `Query is longer than ${MAX_QUERY_LENGTH} characters`);
   }
   return new Parser(source).parse();
 }

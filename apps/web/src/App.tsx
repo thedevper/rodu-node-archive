@@ -26,7 +26,7 @@ export interface Notice {
   hint: string | null;
 }
 
-const LAST_COLLECTION = "shoal.collection";
+const LAST_COLLECTION = "rodu.collection";
 
 export function toNotice(error: unknown): Notice {
   if (error instanceof ApiError) return { message: error.message, hint: error.hint };
@@ -56,10 +56,10 @@ export function App() {
   if (!api) {
     return (
       <main className="empty-state">
-        <h1>Shoal</h1>
+        <h1>Rodu</h1>
         <p>
-          Open the link printed by <code>shoal web</code>. It carries a one-time key for this
-          browser tab.
+          Open the link printed by <code>rodu web</code>. It carries a one-time key for this browser
+          tab.
         </p>
       </main>
     );
@@ -145,7 +145,7 @@ function Workspace({ api }: { api: Api }) {
       <header className="topbar">
         <div className="brand">
           <span className="logo" aria-hidden="true" />
-          Shoal
+          Rodu
         </div>
         <select
           aria-label="Collection"
@@ -270,7 +270,7 @@ interface ColumnProps {
   onCreate: (title: string) => void;
 }
 
-const DRAG_TYPE = "application/x-shoal-item";
+const DRAG_TYPE = "application/x-rodu-item";
 
 function Column({ state, items, onOpen, onDrop, onCreate }: ColumnProps) {
   const listRef = useRef<HTMLOListElement>(null);

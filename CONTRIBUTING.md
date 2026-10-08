@@ -1,6 +1,6 @@
-# Contributing to Shoal
+# Contributing to Rodu
 
-Thanks for helping. Shoal is licensed under the [Apache License 2.0](LICENSE), and contributions
+Thanks for helping. Rodu is licensed under the [Apache License 2.0](LICENSE), and contributions
 come in under the same license (section 5 of the license).
 
 ## Sign off every commit (DCO)

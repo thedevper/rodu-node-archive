@@ -65,10 +65,10 @@ export class ApiError extends Error {
   }
 }
 
-const TOKEN_KEY = "shoal.token";
+const TOKEN_KEY = "rodu.token";
 
 /**
- * `shoal web` opens the page with `#token=...`. The fragment never reaches the server; move it
+ * `rodu web` opens the page with `#token=...`. The fragment never reaches the server; move it
  * into sessionStorage and strip it from the address bar so it is not bookmarked or shared.
  */
 export function takeToken(): string | null {

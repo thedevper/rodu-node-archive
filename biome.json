@@ -4,7 +4,7 @@
     "includes": [
       "**",
       "!**/node_modules",
-      "!**/.shoal",
+      "!**/.rodu",
       "!pnpm-lock.yaml",
       "!**/dist",
       "!**/test-results",

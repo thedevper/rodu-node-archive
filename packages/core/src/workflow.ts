@@ -1,4 +1,4 @@
-import { ShoalError } from "./errors.ts";
+import { RoduError } from "./errors.ts";
 import type { Item, Link, Rule, State, Workflow } from "./model.ts";
 
 const same = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -11,15 +11,15 @@ export function findState(workflow: Workflow, name: string): State | undefined {
 export function validateWorkflow(workflow: Workflow): void {
   const names = workflow.states.map((s) => s.name.toLowerCase());
   if (new Set(names).size !== names.length) {
-    throw new ShoalError("invalid", "Workflow state names must be unique");
+    throw new RoduError("invalid", "Workflow state names must be unique");
   }
   if (!findState(workflow, workflow.initial)) {
-    throw new ShoalError("invalid", `Initial state "${workflow.initial}" is not a workflow state`);
+    throw new RoduError("invalid", `Initial state "${workflow.initial}" is not a workflow state`);
   }
   for (const t of workflow.transitions) {
     for (const end of [t.from, t.to]) {
       if (end !== "*" && !findState(workflow, end)) {
-        throw new ShoalError("invalid", `Transition refers to unknown state "${end}"`);
+        throw new RoduError("invalid", `Transition refers to unknown state "${end}"`);
       }
     }
   }
@@ -72,21 +72,21 @@ export function checkTransition(
 ): State {
   const target = findState(workflow, to);
   if (!target) {
-    throw new ShoalError(
+    throw new RoduError(
       "invalid",
       `Unknown status "${to}"`,
       `Valid statuses: ${workflow.states.map((s) => s.name).join(", ")}`,
     );
   }
   if (same(item.status, target.name)) {
-    throw new ShoalError("invalid", `${item.key} is already in "${target.name}"`);
+    throw new RoduError("invalid", `${item.key} is already in "${target.name}"`);
   }
   const transitions = workflow.transitions.filter(
     (t) => (t.from === "*" || same(t.from, item.status)) && same(t.to, target.name),
   );
   if (transitions.length === 0) {
     const targets = allowedTargets(workflow, item.status);
-    throw new ShoalError(
+    throw new RoduError(
       "rule_violation",
       `${item.key} cannot move from "${item.status}" to "${target.name}"`,
       targets.length > 0 ? `From "${item.status}" it can move to: ${targets.join(", ")}` : null,
@@ -96,7 +96,7 @@ export function checkTransition(
   const failures = transitions.map((t) => t.rules.filter((r) => !ruleHolds(r, item, links)));
   if (failures.some((failed) => failed.length === 0)) return target;
   const failed = failures.reduce((a, b) => (b.length < a.length ? b : a));
-  throw new ShoalError(
+  throw new RoduError(
     "rule_violation",
     `${item.key} cannot move to "${target.name}" yet`,
     failed.map(ruleHint).join("; "),

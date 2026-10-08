@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ShoalService } from "@shoal/core";
-import { SqliteStore } from "@shoal/store-sqlite";
+import { RoduService } from "@rodu/core";
+import { SqliteStore } from "@rodu/store-sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type RunningServer, startWebServer } from "./server.ts";
 
@@ -52,15 +52,15 @@ function send(
 const json = (r: Reply) => JSON.parse(r.body);
 
 beforeEach(async () => {
-  const service = new ShoalService(new SqliteStore());
+  const service = new RoduService(new SqliteStore());
   const human = service.createPrincipal({ name: "alice", kind: "human" });
   const actor = { principalId: human.id, viaAgentId: null };
   service.createCollection(actor, { key: "DEMO", name: "Demo project" });
   service.createCollection(actor, { key: "OPS", name: "Ops" });
   service.createItems(actor, "OPS", [{ title: "Secret ops item" }]);
-  dist = mkdtempSync(join(tmpdir(), "shoal-dist-"));
+  dist = mkdtempSync(join(tmpdir(), "rodu-dist-"));
   mkdirSync(join(dist, "assets"));
-  writeFileSync(join(dist, "index.html"), "<!doctype html><title>Shoal</title>");
+  writeFileSync(join(dist, "index.html"), "<!doctype html><title>Rodu</title>");
   writeFileSync(join(dist, "assets", "app.js"), "console.log(1)");
   server = await startWebServer({ service, actor, distDir: dist, token: TOKEN });
 });
@@ -115,13 +115,13 @@ describe("security", () => {
     expect(page.status).toBe(200);
     expect(page.headers["content-security-policy"]).toContain("default-src 'self'");
     expect(page.headers["referrer-policy"]).toBe("no-referrer");
-    expect((await send("GET", "/board/DEMO")).body).toContain("<title>Shoal</title>");
+    expect((await send("GET", "/board/DEMO")).body).toContain("<title>Rodu</title>");
     expect((await send("GET", "/assets/app.js")).headers["content-type"]).toContain("javascript");
     expect((await send("GET", "/../package.json")).status).toBe(404);
     // Dot segments are normalised away, so this lands on the app page, never on /etc/passwd.
     const traversal = await send("GET", "/%2e%2e/%2e%2e/etc/passwd");
     expect(traversal.body).not.toContain("root:");
-    expect(traversal.body).toContain("<title>Shoal</title>");
+    expect(traversal.body).toContain("<title>Rodu</title>");
     expect((await send("GET", "/missing.js")).status).toBe(404);
   });
 
@@ -274,7 +274,7 @@ describe("board API", () => {
 describe("embedded UI", () => {
   it("serves files held in memory, as a single binary does", async () => {
     await server.close();
-    const service = new ShoalService(new SqliteStore());
+    const service = new RoduService(new SqliteStore());
     const human = service.createPrincipal({ name: "bob", kind: "human" });
     const files = new Map([
       ["/index.html", new TextEncoder().encode("<!doctype html><title>Embedded</title>")],

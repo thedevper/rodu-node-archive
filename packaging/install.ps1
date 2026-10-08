@@ -1,13 +1,13 @@
-# Installs the shoal binary on Windows (PowerShell 5.1 or 7):
+# Installs the rodu binary on Windows (PowerShell 5.1 or 7):
 #
-#   irm https://raw.githubusercontent.com/TheDevper/shoal/v<version>/packaging/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/TheDevper/rodu/v<version>/packaging/install.ps1 | iex
 #
 # The URL names a release tag, so what runs is the reviewed script of that release, not
 # whatever is on main at the time.
 #
-# $env:SHOAL_VERSION = '0.1.0'       a specific release instead of the latest
-# $env:SHOAL_INSTALL_DIR = 'C:\...'  where to put shoal.exe (default %LOCALAPPDATA%\Programs\shoal)
-# $env:SHOAL_DOWNLOAD_BASE = '...'   where the release files are (a URL or folder, for testing)
+# $env:RODU_VERSION = '0.1.0'       a specific release instead of the latest
+# $env:RODU_INSTALL_DIR = 'C:\...'  where to put rodu.exe (default %LOCALAPPDATA%\Programs\rodu)
+# $env:RODU_DOWNLOAD_BASE = '...'   where the release files are (a URL or folder, for testing)
 
 # A script block keeps preferences and variables out of the caller's session under `iex`.
 & {
@@ -15,21 +15,21 @@
   $ProgressPreference = 'SilentlyContinue'  # the progress bar makes Invoke-WebRequest very slow
   [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
-  $Repo = 'TheDevper/shoal'
+  $Repo = 'TheDevper/rodu'
   # x64 also runs on Windows on ARM through emulation.
   $Target = 'windows-x64'
-  $InstallDir = if ($env:SHOAL_INSTALL_DIR) { $env:SHOAL_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\shoal' }
+  $InstallDir = if ($env:RODU_INSTALL_DIR) { $env:RODU_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\rodu' }
 
-  $Version = $env:SHOAL_VERSION
+  $Version = $env:RODU_VERSION
   if (-not $Version) {
     $Version = (Invoke-RestMethod -UseBasicParsing "https://api.github.com/repos/$Repo/releases/latest").tag_name
   }
   $Version = "$Version".TrimStart('v')
-  if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "Unexpected shoal version '$Version'" }
-  $Base = if ($env:SHOAL_DOWNLOAD_BASE) { $env:SHOAL_DOWNLOAD_BASE } else { "https://github.com/$Repo/releases/download/v$Version" }
-  $Archive = "shoal-v$Version-$Target.zip"
+  if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "Unexpected rodu version '$Version'" }
+  $Base = if ($env:RODU_DOWNLOAD_BASE) { $env:RODU_DOWNLOAD_BASE } else { "https://github.com/$Repo/releases/download/v$Version" }
+  $Archive = "rodu-v$Version-$Target.zip"
 
-  $Tmp = Join-Path ([IO.Path]::GetTempPath()) ("shoal-" + [Guid]::NewGuid())
+  $Tmp = Join-Path ([IO.Path]::GetTempPath()) ("rodu-" + [Guid]::NewGuid())
   New-Item -ItemType Directory -Path $Tmp | Out-Null
   try {
     $fetch = {
@@ -39,7 +39,7 @@
       else { Copy-Item -LiteralPath (Join-Path $Base $Name) -Destination $to }
       $to
     }
-    Write-Host "Downloading shoal $Version ($Target)"
+    Write-Host "Downloading rodu $Version ($Target)"
     $zip = & $fetch $Archive
     $expected = Get-Content (& $fetch 'SHA256SUMS') |
       ForEach-Object { $f = $_ -split '\s+'; if ($f[1] -eq $Archive) { $f[0] } } |
@@ -50,12 +50,12 @@
 
     Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $Tmp 'out') -Force
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-    $exe = Join-Path $InstallDir 'shoal.exe'
-    # A running shoal.exe (say, `shoal mcp` under an agent) cannot be overwritten but can be
+    $exe = Join-Path $InstallDir 'rodu.exe'
+    # A running rodu.exe (say, `rodu mcp` under an agent) cannot be overwritten but can be
     # renamed. Each run uses a fresh name, since an older renamed copy may still be running too.
     # Only names this installer makes (32 hex digits), never a user's own file in a chosen folder.
-    Get-ChildItem -LiteralPath $InstallDir -Filter 'shoal.exe.old-*' |
-      Where-Object { $_.Name -cmatch '^shoal\.exe\.old-[0-9a-f]{32}$' } |
+    Get-ChildItem -LiteralPath $InstallDir -Filter 'rodu.exe.old-*' |
+      Where-Object { $_.Name -cmatch '^rodu\.exe\.old-[0-9a-f]{32}$' } |
       Remove-Item -Force -ErrorAction SilentlyContinue
     $old = $null
     if (Test-Path -LiteralPath $exe) {
@@ -63,13 +63,13 @@
       try {
         Move-Item -LiteralPath $exe -Destination $old
       } catch {
-        throw "shoal.exe is in use and could not be replaced. Close shoal (shoal web, or the agent running shoal mcp) and run the installer again."
+        throw "rodu.exe is in use and could not be replaced. Close rodu (rodu web, or the agent running rodu mcp) and run the installer again."
       }
     }
     try {
-      Copy-Item -Force (Join-Path $Tmp 'out\shoal.exe') $exe
+      Copy-Item -Force (Join-Path $Tmp 'out\rodu.exe') $exe
     } catch {
-      # Put the working binary back rather than leave the user without shoal.
+      # Put the working binary back rather than leave the user without rodu.
       if ($old) { Move-Item -Force -LiteralPath $old -Destination $exe -ErrorAction SilentlyContinue }
       throw
     }
@@ -90,17 +90,17 @@
       $key.SetValue('Path', (($parts + $InstallDir) -join ';'), $kind)
       # Tell running programs (Explorer, so terminals it starts) that the environment changed.
       try {
-        if (-not ('ShoalInstall.Env' -as [type])) {
-          Add-Type -Namespace ShoalInstall -Name Env -MemberDefinition @'
+        if (-not ('RoduInstall.Env' -as [type])) {
+          Add-Type -Namespace RoduInstall -Name Env -MemberDefinition @'
 [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
 public static extern System.IntPtr SendMessageTimeout(System.IntPtr hWnd, uint msg, System.UIntPtr wParam, string lParam, uint flags, uint timeout, out System.UIntPtr result);
 '@
         }
         $result = [UIntPtr]::Zero
         # HWND_BROADCAST, WM_SETTINGCHANGE, "Environment", SMTO_ABORTIFHUNG, 5 s
-        [void][ShoalInstall.Env]::SendMessageTimeout([IntPtr]0xffff, 0x1a, [UIntPtr]::Zero, 'Environment', 2, 5000, [ref]$result)
+        [void][RoduInstall.Env]::SendMessageTimeout([IntPtr]0xffff, 0x1a, [UIntPtr]::Zero, 'Environment', 2, 5000, [ref]$result)
       } catch {
-        Write-Host 'Sign out and back in (or restart Explorer) if new terminals do not find shoal.'
+        Write-Host 'Sign out and back in (or restart Explorer) if new terminals do not find rodu.'
       }
       Write-Host "Added $InstallDir to your PATH (new terminals pick it up)."
     }
@@ -109,8 +109,8 @@ public static extern System.IntPtr SendMessageTimeout(System.IntPtr hWnd, uint m
   }
   if (($env:Path -split ';') -notcontains $InstallDir) { $env:Path = "$env:Path;$InstallDir" }
 
-  $installed = & (Join-Path $InstallDir 'shoal.exe') --version
+  $installed = & (Join-Path $InstallDir 'rodu.exe') --version
   Write-Host "Installed $installed to $InstallDir"
   Write-Host ''
-  Write-Host 'Start: mkdir ~\shoal; cd ~\shoal; shoal init --name <you> --key <KEY>; shoal web'
+  Write-Host 'Start: mkdir ~\rodu; cd ~\rodu; rodu init --name <you> --key <KEY>; rodu web'
 }

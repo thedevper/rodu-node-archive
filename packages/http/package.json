@@ -1,5 +1,5 @@
 {
-  "name": "@shoal/http",
+  "name": "@rodu/http",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,11 +7,11 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@shoal/core": "workspace:*",
-    "@shoal/query": "workspace:*",
+    "@rodu/core": "workspace:*",
+    "@rodu/query": "workspace:*",
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@shoal/store-sqlite": "workspace:*"
+    "@rodu/store-sqlite": "workspace:*"
   }
 }

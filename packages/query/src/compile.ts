@@ -1,4 +1,4 @@
-import { CATEGORIES, ITEM_TYPES, PRIORITIES, ShoalError } from "@shoal/core";
+import { CATEGORIES, ITEM_TYPES, PRIORITIES, RoduError } from "@rodu/core";
 import type { CompareOp, Expr, OrderBy, Query, Value } from "./parse.ts";
 
 // Compiles the AST to a parameterised SQLite WHERE / ORDER BY over `items i`.
@@ -314,7 +314,7 @@ class Compiler {
 
   private fts(text: string): Fragment {
     const terms = text.split(/\s+/).filter(Boolean);
-    if (terms.length === 0) throw new ShoalError("invalid", "Search text is empty");
+    if (terms.length === 0) throw new RoduError("invalid", "Search text is empty");
     // Quote every term so FTS5 operators typed by a person are treated as plain words.
     const match = terms.map((t) => `"${t.replace(/"/g, '""')}"`).join(" ");
     return {
@@ -336,9 +336,9 @@ class Compiler {
     }
   }
 
-  private error(message: string, pos: number, hint?: string): ShoalError {
+  private error(message: string, pos: number, hint?: string): RoduError {
     const caret = `${this.source}\n${" ".repeat(pos)}^`;
-    return new ShoalError(
+    return new RoduError(
       "invalid",
       `Query error at ${pos}: ${message}`,
       hint ? `${hint}\n${caret}` : caret,

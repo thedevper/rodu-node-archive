@@ -1,4 +1,4 @@
-import type { Collection, Comment, Cycle, Item, Link, Principal, ShoalEvent } from "./model.ts";
+import type { Collection, Comment, Cycle, Item, Link, Principal, RoduEvent } from "./model.ts";
 
 export interface SearchRequest {
   /** JQL-lite query; empty matches everything. */
@@ -68,8 +68,8 @@ export interface Store {
   /** Links whose target is this item (e.g. items that block it). */
   listIncomingLinks(itemId: string): Link[];
 
-  appendEvent(event: ShoalEvent): void;
-  listEvents(targetId: string): ShoalEvent[];
+  appendEvent(event: RoduEvent): void;
+  listEvents(targetId: string): RoduEvent[];
 
   getIdempotent(key: string): string | null;
   putIdempotent(key: string, result: string): void;

@@ -1,7 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-// `pnpm --filter @shoal/web dev` proxies the API to a running `shoal web --port 4870`.
+// `pnpm --filter @rodu/web dev` proxies the API to a running `rodu web --port 4870`.
 export default defineConfig({
   plugins: [react()],
   build: { outDir: "dist", emptyOutDir: true, sourcemap: false },

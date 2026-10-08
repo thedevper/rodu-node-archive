@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { ShoalError } from "./errors.ts";
+import { RoduError } from "./errors.ts";
 import { type ContextParts, formatContext } from "./format.ts";
 import { formatKey, isUuid, uuidv7 } from "./ids.ts";
 import {
@@ -45,7 +45,7 @@ const DEFAULT_CONTEXT_TOKENS = 4000;
 function checkName(name: string, max: number): string {
   const trimmed = name.trim();
   if (!trimmed || trimmed.length > max || !SINGLE_LINE.test(trimmed)) {
-    throw new ShoalError("invalid", `Name must be one line of 1-${max} characters`);
+    throw new RoduError("invalid", `Name must be one line of 1-${max} characters`);
   }
   return trimmed;
 }
@@ -56,14 +56,14 @@ function parseInput<T>(schema: z.ZodType<T>, input: unknown, what: string): T {
   const issues = result.error.issues
     .map((i) => `${i.path.join(".") || what}: ${i.message}`)
     .join("; ");
-  throw new ShoalError("invalid", `Invalid ${what}: ${issues}`);
+  throw new RoduError("invalid", `Invalid ${what}: ${issues}`);
 }
 
 /**
  * The single command layer. The CLI, the MCP server and (later) the UI call these methods,
  * so every surface shares the same validation, workflow rules and audit events.
  */
-export class ShoalService {
+export class RoduService {
   readonly store: Store;
   readonly maxBatch: number;
   private readonly now: () => Date;
@@ -78,20 +78,20 @@ export class ShoalService {
 
   createPrincipal(input: { name: string; kind: "human" | "agent"; ownerId?: string }): Principal {
     if (!PRINCIPAL_NAME.test(input.name)) {
-      throw new ShoalError(
+      throw new RoduError(
         "invalid",
         `Invalid name "${input.name}"`,
         "Use 1-40 letters, digits, dots, dashes or underscores",
       );
     }
     if (this.store.findPrincipal(input.name)) {
-      throw new ShoalError("conflict", `Principal "${input.name}" already exists`);
+      throw new RoduError("conflict", `Principal "${input.name}" already exists`);
     }
     if (input.kind === "agent" && !input.ownerId) {
-      throw new ShoalError("invalid", "An agent needs a human owner");
+      throw new RoduError("invalid", "An agent needs a human owner");
     }
     if (input.ownerId && this.principal(input.ownerId).kind !== "human") {
-      throw new ShoalError("invalid", "An agent's owner must be a human");
+      throw new RoduError("invalid", "An agent's owner must be a human");
     }
     const principal: Principal = {
       id: uuidv7(this.now().getTime()),
@@ -107,7 +107,7 @@ export class ShoalService {
     const found = this.store.findPrincipal(ref);
     if (!found) {
       const names = this.store.listPrincipals().map((p) => p.name);
-      throw new ShoalError("not_found", `No principal "${ref}"`, `Known: ${names.join(", ")}`);
+      throw new RoduError("not_found", `No principal "${ref}"`, `Known: ${names.join(", ")}`);
     }
     return found;
   }
@@ -121,14 +121,14 @@ export class ShoalService {
   createCollection(actor: Actor, input: { key: string; name: string }): Collection {
     const key = input.key.toUpperCase();
     if (!COLLECTION_KEY.test(key)) {
-      throw new ShoalError(
+      throw new RoduError(
         "invalid",
         `Invalid collection key "${input.key}"`,
         "Use 2-10 letters or digits starting with a letter, e.g. DEMO",
       );
     }
     if (this.store.findCollection(key)) {
-      throw new ShoalError("conflict", `Collection ${key} already exists`);
+      throw new RoduError("conflict", `Collection ${key} already exists`);
     }
     const name = checkName(input.name, 80);
     validateWorkflow(DEV_WORKFLOW);
@@ -151,7 +151,7 @@ export class ShoalService {
     const found = this.store.findCollection(ref);
     if (!found) {
       const keys = this.store.listCollections().map((c) => c.key);
-      throw new ShoalError(
+      throw new RoduError(
         "not_found",
         `No collection "${ref}"`,
         keys.length > 0 ? `Known collections: ${keys.join(", ")}` : "Create one first",
@@ -168,7 +168,7 @@ export class ShoalService {
     const found = this.store.findCycle(collection.id, ref);
     if (!found) {
       const names = this.store.listCycles(collection.id).map((c) => c.name);
-      throw new ShoalError(
+      throw new RoduError(
         "not_found",
         `No cycle "${ref}" in ${collection.key}`,
         names.length > 0 ? `Cycles: ${names.join(", ")}` : "Create a cycle first",
@@ -185,12 +185,12 @@ export class ShoalService {
     const collection = this.collection(collectionRef);
     const name = checkName(input.name, 60);
     if (this.store.findCycle(collection.id, name)) {
-      throw new ShoalError("conflict", `Cycle "${name}" already exists in ${collection.key}`);
+      throw new RoduError("conflict", `Cycle "${name}" already exists in ${collection.key}`);
     }
     const startsOn = input.startsOn ? parseInput(IsoDateSchema, input.startsOn, "startsOn") : null;
     const endsOn = input.endsOn ? parseInput(IsoDateSchema, input.endsOn, "endsOn") : null;
     if (startsOn && endsOn && endsOn < startsOn) {
-      throw new ShoalError("invalid", "endsOn must not be before startsOn");
+      throw new RoduError("invalid", "endsOn must not be before startsOn");
     }
     const cycle: Cycle = {
       id: uuidv7(this.now().getTime()),
@@ -211,11 +211,11 @@ export class ShoalService {
     const collection = this.collection(collectionRef);
     const cycle = this.cycle(collection, cycleRef);
     if (cycle.state !== "planned") {
-      throw new ShoalError("invalid", `Cycle "${cycle.name}" is ${cycle.state}, not planned`);
+      throw new RoduError("invalid", `Cycle "${cycle.name}" is ${cycle.state}, not planned`);
     }
     const active = this.store.listCycles(collection.id).find((c) => c.state === "active");
     if (active) {
-      throw new ShoalError(
+      throw new RoduError(
         "conflict",
         `Cycle "${active.name}" is still active in ${collection.key}`,
         "Close it first",
@@ -239,11 +239,11 @@ export class ShoalService {
     const collection = this.collection(collectionRef);
     const cycle = this.cycle(collection, cycleRef);
     if (cycle.state !== "active") {
-      throw new ShoalError("invalid", `Cycle "${cycle.name}" is ${cycle.state}, not active`);
+      throw new RoduError("invalid", `Cycle "${cycle.name}" is ${cycle.state}, not active`);
     }
     const next = carryOverTo ? this.cycle(collection, carryOverTo) : null;
     if (next && next.state !== "planned") {
-      throw new ShoalError("invalid", `Cycle "${next.name}" is ${next.state}, not planned`);
+      throw new RoduError("invalid", `Cycle "${next.name}" is ${next.state}, not planned`);
     }
     const requestId = uuidv7();
     return this.store.transaction(() => {
@@ -265,7 +265,7 @@ export class ShoalService {
       ? this.cycle(collection, cycleRef)
       : this.store.listCycles(collection.id).find((c) => c.state === "active");
     if (!cycle) {
-      throw new ShoalError("not_found", `${collection.key} has no active cycle`, "Name a cycle");
+      throw new RoduError("not_found", `${collection.key} has no active cycle`, "Name a cycle");
     }
     const items = this.store.listItemsInCycle(cycle.id);
     const byCategory: Record<Category, number> = { backlog: 0, active: 0, review: 0, done: 0 };
@@ -293,7 +293,7 @@ export class ShoalService {
     const found = isUuid(ref)
       ? this.store.getItem(ref)
       : this.store.getItemByKey(ref.trim().toUpperCase());
-    if (!found) throw new ShoalError("not_found", `No item "${ref}"`, "Use a key such as DEMO-12");
+    if (!found) throw new RoduError("not_found", `No item "${ref}"`, "Use a key such as DEMO-12");
     return found;
   }
 
@@ -303,9 +303,9 @@ export class ShoalService {
     inputs: unknown[],
     idempotencyKey?: string,
   ): Item[] {
-    if (inputs.length === 0) throw new ShoalError("invalid", "Nothing to create");
+    if (inputs.length === 0) throw new RoduError("invalid", "Nothing to create");
     if (inputs.length > this.maxBatch) {
-      throw new ShoalError(
+      throw new RoduError(
         "limit",
         `Too many items in one call (${inputs.length} > ${this.maxBatch})`,
         "Split the plan into smaller batches so a person can review each one",
@@ -314,7 +314,7 @@ export class ShoalService {
     const collection = this.collection(collectionRef);
     const parsed = inputs.map((input, i) => parseInput(NewItemSchema, input, `items[${i}]`));
     const initial = findState(collection.workflow, collection.workflow.initial);
-    if (!initial) throw new ShoalError("invalid", "Collection workflow has no initial state");
+    if (!initial) throw new RoduError("invalid", "Collection workflow has no initial state");
     const requestId = uuidv7();
     const scopedKey = idempotencyKey ? `${actor.principalId}:create_items:${idempotencyKey}` : null;
     // The key is bound to the request it first served, so reusing it for other input is an error.
@@ -333,7 +333,7 @@ export class ShoalService {
           ? { fingerprint, ids: parsedPrevious }
           : parsedPrevious;
         if (saved.fingerprint !== fingerprint) {
-          throw new ShoalError(
+          throw new RoduError(
             "conflict",
             `Idempotency key "${idempotencyKey}" was already used for a different request`,
             "Use a new idempotency_key for a new request",
@@ -384,7 +384,7 @@ export class ShoalService {
     const patch = parseInput(ItemPatchSchema, patchInput, "patch");
     const item = this.item(ref);
     if (expectedVersion !== undefined && expectedVersion !== item.version) {
-      throw new ShoalError(
+      throw new RoduError(
         "conflict",
         `${item.key} changed (version ${item.version}, you sent ${expectedVersion})`,
         `Read ${item.key} again and retry with expected_version ${item.version}`,
@@ -408,7 +408,7 @@ export class ShoalService {
     if (patch.cycle !== undefined) {
       changes.cycleId = patch.cycle === null ? null : this.openCycle(collection, patch.cycle).id;
     }
-    if (Object.keys(changes).length === 0) throw new ShoalError("invalid", "Nothing to update");
+    if (Object.keys(changes).length === 0) throw new RoduError("invalid", "Nothing to update");
     return this.store.transaction(() => this.writeItem(uuidv7(), actor, item, changes));
   }
 
@@ -431,20 +431,17 @@ export class ShoalService {
       if (!r) return null;
       const other = this.item(r);
       if (other.collectionId !== item.collectionId) {
-        throw new ShoalError(
-          "invalid",
-          `${other.key} is not in the same collection as ${item.key}`,
-        );
+        throw new RoduError("invalid", `${other.key} is not in the same collection as ${item.key}`);
       }
       if (other.id === item.id)
-        throw new ShoalError("invalid", "An item cannot move next to itself");
+        throw new RoduError("invalid", "An item cannot move next to itself");
       return other;
     };
     const after = neighbour(to.after);
     const before = neighbour(to.before);
-    if (!after && !before) throw new ShoalError("invalid", "Say where to move: after or before");
+    if (!after && !before) throw new RoduError("invalid", "Say where to move: after or before");
     if (after && before && after.rank >= before.rank) {
-      throw new ShoalError(
+      throw new RoduError(
         "conflict",
         `${after.key} is not above ${before.key} any more`,
         "Reload the list and try again",
@@ -472,7 +469,7 @@ export class ShoalService {
   comment(actor: Actor, ref: string, body: string): Comment {
     const text = body.trim();
     if (!text || text.length > 20_000) {
-      throw new ShoalError("invalid", "Comment must be 1-20000 characters");
+      throw new RoduError("invalid", "Comment must be 1-20000 characters");
     }
     const item = this.item(ref);
     const comment: Comment = {
@@ -498,9 +495,9 @@ export class ShoalService {
       targetValue = parseInput(z.url({ protocol: /^https?$/ }), target, "target");
     } else {
       const other = this.item(target);
-      if (other.id === item.id) throw new ShoalError("invalid", "An item cannot link to itself");
+      if (other.id === item.id) throw new RoduError("invalid", "An item cannot link to itself");
       if (linkKind === "blocks" && this.blocksTransitively(other.id, item.id)) {
-        throw new ShoalError(
+        throw new RoduError(
           "invalid",
           `${item.key} cannot block ${other.key}: ${other.key} already blocks it, which would be a cycle`,
         );
@@ -510,7 +507,7 @@ export class ShoalService {
     if (
       this.store.listLinks(item.id).some((l) => l.kind === linkKind && l.target === targetValue)
     ) {
-      throw new ShoalError("conflict", `${item.key} already has this ${linkKind} link`);
+      throw new RoduError("conflict", `${item.key} already has this ${linkKind} link`);
     }
     const link: Link = {
       id: uuidv7(this.now().getTime()),
@@ -578,7 +575,7 @@ export class ShoalService {
   private openCycle(collection: Collection, ref: string): Cycle {
     const cycle = this.cycle(collection, ref);
     if (cycle.state === "closed") {
-      throw new ShoalError("invalid", `Cycle "${cycle.name}" is closed`);
+      throw new RoduError("invalid", `Cycle "${cycle.name}" is closed`);
     }
     return cycle;
   }
@@ -600,7 +597,7 @@ export class ShoalService {
     const parent = this.item(parentRef);
     for (let cursor: Item | null = parent; cursor; ) {
       if (cursor.id === item.id) {
-        throw new ShoalError(
+        throw new RoduError(
           "invalid",
           `${parent.key} cannot be the parent of ${item.key}`,
           "That would create a loop",
@@ -619,7 +616,7 @@ export class ShoalService {
       version: item.version + 1,
     };
     if (!this.store.saveItem(next, item.version)) {
-      throw new ShoalError(
+      throw new RoduError(
         "conflict",
         `${item.key} was changed by someone else`,
         `Read ${item.key} again and retry`,

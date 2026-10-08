@@ -1,4 +1,4 @@
-// Builds the standalone `shoal` binaries (Node single executable applications) and the files
+// Builds the standalone `rodu` binaries (Node single executable applications) and the files
 // that install them: archives, SHA256SUMS, a Homebrew formula and a Scoop manifest.
 //
 //   pnpm build:binaries [--targets darwin-arm64,darwin-x64,windows-x64]
@@ -25,7 +25,7 @@ import { build } from "esbuild";
 import { VERSION } from "../apps/cli/src/version.ts";
 
 const NODE_VERSION = "v26.11.0";
-const REPO = "TheDevper/shoal";
+const REPO = "TheDevper/rodu";
 const ROOT = resolve(import.meta.dirname, "..");
 const WEB_DIST = join(ROOT, "apps/web/dist");
 const OUT = join(ROOT, "dist/release");
@@ -52,10 +52,10 @@ interface Target {
 }
 
 const TARGETS: Record<string, Target> = {
-  "darwin-arm64": { name: "darwin-arm64", node: "darwin-arm64", archive: "tar.gz", exe: "shoal" },
-  "darwin-x64": { name: "darwin-x64", node: "darwin-x64", archive: "tar.gz", exe: "shoal" },
-  "windows-x64": { name: "windows-x64", node: "win-x64", archive: "zip", exe: "shoal.exe" },
-  "linux-x64": { name: "linux-x64", node: "linux-x64", archive: "tar.gz", exe: "shoal" },
+  "darwin-arm64": { name: "darwin-arm64", node: "darwin-arm64", archive: "tar.gz", exe: "rodu" },
+  "darwin-x64": { name: "darwin-x64", node: "darwin-x64", archive: "tar.gz", exe: "rodu" },
+  "windows-x64": { name: "windows-x64", node: "win-x64", archive: "zip", exe: "rodu.exe" },
+  "linux-x64": { name: "linux-x64", node: "linux-x64", archive: "tar.gz", exe: "rodu" },
 };
 const DEFAULT_TARGETS = ["darwin-arm64", "darwin-x64", "windows-x64"];
 
@@ -168,9 +168,9 @@ function thirdPartyNotices(nodeLicense: string): string {
       "pnpm",
       [
         "--filter",
-        "@shoal/cli",
+        "@rodu/cli",
         "--filter",
-        "@shoal/web",
+        "@rodu/web",
         "list",
         "--prod",
         "--depth",
@@ -184,7 +184,7 @@ function thirdPartyNotices(nodeLicense: string): string {
   const walk = (deps: Record<string, Dependency> | undefined) => {
     for (const dep of Object.values(deps ?? {})) {
       const key = `${dep.from}@${dep.version}`;
-      // Workspace packages are Shoal's own code; their dependencies still count.
+      // Workspace packages are Rodu's own code; their dependencies still count.
       if (dep.path.split(sep).includes("node_modules")) {
         if (packages.has(key)) continue;
         packages.set(key, dep.path);
@@ -210,11 +210,11 @@ function thirdPartyNotices(nodeLicense: string): string {
     sections.push(`${key} (${license})\n\n${texts.join("\n\n")}`);
   }
   const rule = `\n\n${"-".repeat(78)}\n\n`;
-  return `Shoal includes the following third-party software.${rule}${sections.join(rule)}\n`;
+  return `Rodu includes the following third-party software.${rule}${sections.join(rule)}\n`;
 }
 
 async function bundle(): Promise<string> {
-  const out = join(WORK, "shoal.mjs");
+  const out = join(WORK, "rodu.mjs");
   await build({
     entryPoints: [join(ROOT, "apps/cli/src/main.ts")],
     outfile: out,
@@ -225,14 +225,14 @@ async function bundle(): Promise<string> {
     legalComments: "none",
     // Bundled CommonJS dependencies call require() for Node built-ins.
     banner: {
-      js: 'import { createRequire as __shoalRequire } from "node:module"; const require = __shoalRequire(import.meta.url);',
+      js: 'import { createRequire as __roduRequire } from "node:module"; const require = __roduRequire(import.meta.url);',
     },
   });
   return out;
 }
 
 function pack(target: Target, binary: string): string {
-  const name = `shoal-v${VERSION}-${target.name}.${target.archive}`;
+  const name = `rodu-v${VERSION}-${target.name}.${target.archive}`;
   const file = join(OUT, name);
   rmSync(file, { force: true });
   const dir = join(WORK, target.name);
@@ -250,10 +250,10 @@ function pack(target: Target, binary: string): string {
 
 function formula(sums: Map<string, string>): string {
   const url = (t: string) =>
-    `https://github.com/${REPO}/releases/download/v${VERSION}/shoal-v${VERSION}-${t}.tar.gz`;
+    `https://github.com/${REPO}/releases/download/v${VERSION}/rodu-v${VERSION}-${t}.tar.gz`;
   const arch = (t: string) =>
     sums.has(t) ? `      url "${url(t)}"\n      sha256 "${sums.get(t)}"\n` : "";
-  return `class Shoal < Formula
+  return `class Rodu < Formula
   desc "Local-first, AI-first kanban for small teams"
   homepage "https://github.com/${REPO}"
   version "${VERSION}"
@@ -267,12 +267,12 @@ ${arch("darwin-x64")}    end
   end
 
   def install
-    bin.install "shoal"
+    bin.install "rodu"
     prefix.install ${NOTICES.map((n) => `"${n}"`).join(", ")}
   end
 
   test do
-    assert_match version.to_s, shell_output("#{bin}/shoal --version")
+    assert_match version.to_s, shell_output("#{bin}/rodu --version")
   end
 end
 `;
@@ -280,14 +280,14 @@ end
 
 function scoop(sums: Map<string, string>): string {
   const url = (v: string) =>
-    `https://github.com/${REPO}/releases/download/v${v}/shoal-v${v}-windows-x64.zip`;
+    `https://github.com/${REPO}/releases/download/v${v}/rodu-v${v}-windows-x64.zip`;
   const manifest = {
     version: VERSION,
     description: "Local-first, AI-first kanban for small teams",
     homepage: `https://github.com/${REPO}`,
     license: "Apache-2.0",
     architecture: { "64bit": { url: url(VERSION), hash: sums.get("windows-x64") } },
-    bin: "shoal.exe",
+    bin: "rodu.exe",
     checkver: "github",
     autoupdate: { architecture: { "64bit": { url: url("$version") } } },
   };
@@ -357,7 +357,7 @@ async function main(): Promise<void> {
     rmSync(join(dir, "node-unsigned.exe"), { force: true });
     if (target.node === HOST) {
       const reported = sh(output, ["--version"]).trim();
-      if (reported !== `shoal ${VERSION}`) throw new Error(`${output} --version: ${reported}`);
+      if (reported !== `rodu ${VERSION}`) throw new Error(`${output} --version: ${reported}`);
     }
     const archive = pack(target, output);
     const sum = sha256(join(OUT, archive));
@@ -366,9 +366,9 @@ async function main(): Promise<void> {
   }
   writeFileSync(join(OUT, "SHA256SUMS"), `${lines.join("\n")}\n`);
   if (sums.has("darwin-arm64") || sums.has("darwin-x64")) {
-    writeFileSync(join(OUT, "shoal.rb"), formula(sums));
+    writeFileSync(join(OUT, "rodu.rb"), formula(sums));
   }
-  if (sums.has("windows-x64")) writeFileSync(join(OUT, "shoal.json"), scoop(sums));
+  if (sums.has("windows-x64")) writeFileSync(join(OUT, "rodu.json"), scoop(sums));
   for (const script of ["install.sh", "install.ps1"]) {
     copyFileSync(join(ROOT, "packaging", script), join(OUT, script));
   }
