@@ -58,7 +58,11 @@
     $old = $null
     if (Test-Path -LiteralPath $exe) {
       $old = "$exe.old-" + [Guid]::NewGuid().ToString('N')
-      Move-Item -LiteralPath $exe -Destination $old
+      try {
+        Move-Item -LiteralPath $exe -Destination $old
+      } catch {
+        throw "shoal.exe is in use and could not be replaced. Close shoal (shoal web, or the agent running shoal mcp) and run the installer again."
+      }
     }
     try {
       Copy-Item -Force (Join-Path $Tmp 'out\shoal.exe') $exe
