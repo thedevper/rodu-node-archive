@@ -1,9 +1,9 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { ShoalService } from "@shoal/core";
-import { SqliteStore } from "@shoal/store-sqlite";
+import { RoduService } from "@rodu/core";
+import { SqliteStore } from "@rodu/store-sqlite";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createShoalMcpServer } from "./server.ts";
+import { createRoduMcpServer } from "./server.ts";
 
 let client: Client;
 
@@ -13,20 +13,20 @@ function text(result: Awaited<ReturnType<Client["callTool"]>>): string {
 }
 
 beforeEach(async () => {
-  const service = new ShoalService(new SqliteStore());
+  const service = new RoduService(new SqliteStore());
   const human = service.createPrincipal({ name: "alice", kind: "human" });
   const bot = service.createPrincipal({ name: "alice-claude", kind: "agent", ownerId: human.id });
   const actor = { principalId: human.id, viaAgentId: bot.id };
   service.createCollection(actor, { key: "DEMO", name: "Demo project" });
   service.createCollection(actor, { key: "OPS", name: "Operations" });
 
-  const server = createShoalMcpServer(service, actor);
+  const server = createRoduMcpServer(service, actor);
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
   client = new Client({ name: "test", version: "0.0.0" });
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
 });
 
-describe("shoal MCP server", () => {
+describe("rodu MCP server", () => {
   it("lists the v0 tools and instructions", async () => {
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([
@@ -144,7 +144,7 @@ describe("shoal MCP server", () => {
   });
 
   it("serves the schema resource", async () => {
-    const resource = await client.readResource({ uri: "shoal://schema" });
+    const resource = await client.readResource({ uri: "rodu://schema" });
     const body = (resource.contents[0] as { text: string }).text;
     expect(body).toContain("JQL-lite");
     expect(body).toContain("In Progress → In Review: requireAssignee, requireLink implements_pr");

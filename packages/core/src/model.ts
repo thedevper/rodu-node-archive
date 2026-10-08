@@ -119,7 +119,7 @@ export interface Link {
   createdAt: string;
 }
 
-export interface ShoalEvent {
+export interface RoduEvent {
   id: string;
   requestId: string;
   actorId: string;

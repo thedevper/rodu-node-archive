@@ -1,6 +1,6 @@
-# @shoal/http
+# @rodu/http
 
-Local JSON API behind the web board (`shoal web`). It is not a network service: it listens on
+Local JSON API behind the web board (`rodu web`). It is not a network service: it listens on
 `127.0.0.1` only and every API call needs the per-run token.
 
 ## Security contract
@@ -18,7 +18,7 @@ the server sends no CORS headers, so it cannot call the API. The token is handed
 the URL fragment (never sent to the server or in `Referer`) and kept in `sessionStorage`.
 Every response carries a strict CSP, `Referrer-Policy: no-referrer` and `nosniff`.
 
-The token is only valid while that `shoal web` run is up. The first URL (with `#token=`) can still
+The token is only valid while that `rodu web` run is up. The first URL (with `#token=`) can still
 sit in terminal scrollback and the browser's history even though the page strips it from the
 address bar, so treat the link like a short-lived password and stop the server when you are done.
 

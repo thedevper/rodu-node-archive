@@ -6,25 +6,25 @@ import sea from "node:sea";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { type Actor, itemLine, ShoalError, ShoalService } from "@shoal/core";
-import { type RunningServer, startWebServer } from "@shoal/http";
-import { createShoalMcpServer } from "@shoal/mcp";
-import { SqliteStore } from "@shoal/store-sqlite";
+import { type Actor, itemLine, RoduError, RoduService } from "@rodu/core";
+import { type RunningServer, startWebServer } from "@rodu/http";
+import { createRoduMcpServer } from "@rodu/mcp";
+import { SqliteStore } from "@rodu/store-sqlite";
 import { z } from "zod";
 import { VERSION } from "./version.ts";
 
-const USAGE = `Usage: shoal <command> [options]
+const USAGE = `Usage: rodu <command> [options]
 
   init --name <you> --key <KEY> [--title <collection name>]   create a workspace here
   add <title> [--type bug] [--priority high] [--assignee me] [--collection KEY]
   ls [query]                 list items (JQL-lite, e.g. "assignee = me() ORDER BY priority")
   show <key>                 item with its context
-  mv <key> <status>          move an item, e.g. shoal mv DEMO-3 "In Progress"
+  mv <key> <status>          move an item, e.g. rodu mv DEMO-3 "In Progress"
   mcp                        serve MCP over stdio for your agent
   web [--port 4870] [--no-open]   open the kanban board in your browser (local only)
   --version                  print the version
 
-The workspace is the nearest .shoal directory, or $SHOAL_DIR.`;
+The workspace is the nearest .rodu directory, or $RODU_DIR.`;
 
 const ConfigSchema = z.object({
   userId: z.string().min(1),
@@ -59,16 +59,24 @@ const DEFAULT_WEB_PORT = 4870;
 
 interface Workspace {
   dir: string;
-  service: ShoalService;
+  service: RoduService;
   store: SqliteStore;
   config: Config;
   actor: Actor;
 }
 
 function findDir(io: Io): string | null {
-  if (io.env.SHOAL_DIR) return resolve(io.cwd, io.env.SHOAL_DIR);
+  if (io.env.RODU_DIR) return resolve(io.cwd, io.env.RODU_DIR);
   for (let dir = resolve(io.cwd); ; dir = dirname(dir)) {
-    if (existsSync(join(dir, ".shoal", "config.json"))) return join(dir, ".shoal");
+    if (existsSync(join(dir, ".rodu", "config.json"))) return join(dir, ".rodu");
+    // Rodu was called Shoal until 0.2.0.
+    if (existsSync(join(dir, ".shoal", "config.json"))) {
+      throw new RoduError(
+        "conflict",
+        `${join(dir, ".shoal")} is from Shoal, Rodu's old name`,
+        `In ${dir}, rename the folder .shoal to .rodu, then the file shoal.db inside it to rodu.db`,
+      );
+    }
     if (dirname(dir) === dir) return null;
   }
 }
@@ -76,36 +84,36 @@ function findDir(io: Io): string | null {
 function open(io: Io, viaAgent: boolean): Workspace {
   const dir = findDir(io);
   if (!dir || !existsSync(join(dir, "config.json"))) {
-    throw new ShoalError(
+    throw new RoduError(
       "not_found",
-      "No Shoal workspace here",
-      'Create one in this folder: shoal init --name <you> --key <KEY> --title "<project>"',
+      "No Rodu workspace here",
+      'Create one in this folder: rodu init --name <you> --key <KEY> --title "<project>"',
     );
   }
   const config = ConfigSchema.parse(JSON.parse(readFileSync(join(dir, "config.json"), "utf8")));
-  const store = new SqliteStore(join(dir, "shoal.db"));
+  const store = new SqliteStore(join(dir, "rodu.db"));
   const actor = { principalId: config.userId, viaAgentId: viaAgent ? config.agentId : null };
-  return { dir, store, service: new ShoalService(store), config, actor };
+  return { dir, store, service: new RoduService(store), config, actor };
 }
 
 function init(io: Io, values: Record<string, string | boolean | undefined>): void {
   const name = values.name;
   const key = values.key;
   if (typeof name !== "string" || typeof key !== "string") {
-    throw new ShoalError(
+    throw new RoduError(
       "invalid",
       "init needs --name and --key",
-      "e.g. shoal init --name your-name --key DEMO",
+      "e.g. rodu init --name your-name --key DEMO",
     );
   }
-  const dir = io.env.SHOAL_DIR ? resolve(io.cwd, io.env.SHOAL_DIR) : join(io.cwd, ".shoal");
+  const dir = io.env.RODU_DIR ? resolve(io.cwd, io.env.RODU_DIR) : join(io.cwd, ".rodu");
   if (existsSync(join(dir, "config.json"))) {
-    throw new ShoalError("conflict", `A workspace already exists at ${dir}`);
+    throw new RoduError("conflict", `A workspace already exists at ${dir}`);
   }
   mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const store = new SqliteStore(join(dir, "shoal.db"));
+  const store = new SqliteStore(join(dir, "rodu.db"));
   try {
-    const service = new ShoalService(store);
+    const service = new RoduService(store);
     const config = store.transaction(() => {
       const user = service.createPrincipal({ name, kind: "human" });
       const agent = service.createPrincipal({
@@ -129,9 +137,9 @@ function init(io: Io, values: Record<string, string | boolean | undefined>): voi
 
 async function serveMcp(io: Io): Promise<void> {
   const ws = open(io, true);
-  const server = createShoalMcpServer(ws.service, ws.actor);
+  const server = createRoduMcpServer(ws.service, ws.actor);
   await server.connect(new StdioServerTransport());
-  io.err(`shoal mcp: serving ${ws.dir} on stdio`);
+  io.err(`rodu mcp: serving ${ws.dir} on stdio`);
 }
 
 function parseOptions(argv: string[]) {
@@ -160,22 +168,22 @@ async function serveWeb(
   portOption: string | undefined,
   openBrowser: boolean,
 ): Promise<void> {
-  const files = io.env.SHOAL_WEB_DIST ? null : embeddedWeb();
+  const files = io.env.RODU_WEB_DIST ? null : embeddedWeb();
   const distDir = files
     ? null
-    : io.env.SHOAL_WEB_DIST
-      ? resolve(io.cwd, io.env.SHOAL_WEB_DIST)
+    : io.env.RODU_WEB_DIST
+      ? resolve(io.cwd, io.env.RODU_WEB_DIST)
       : defaultWebDist();
   if (distDir && !existsSync(join(distDir, "index.html"))) {
-    throw new ShoalError(
+    throw new RoduError(
       "not_found",
       "The web UI is not built",
-      sea.isSea() ? "This shoal binary is incomplete: reinstall it" : "Run: pnpm build:web",
+      sea.isSea() ? "This rodu binary is incomplete: reinstall it" : "Run: pnpm build:web",
     );
   }
   const port = portOption === undefined ? DEFAULT_WEB_PORT : Number(portOption);
   if (!Number.isInteger(port) || port < 0 || port > 65535) {
-    throw new ShoalError("invalid", "--port must be a whole number from 0 to 65535");
+    throw new RoduError("invalid", "--port must be a whole number from 0 to 65535");
   }
   const ws = open(io, false);
   let server: RunningServer;
@@ -184,7 +192,7 @@ async function serveWeb(
   } catch (error) {
     ws.store.close();
     if ((error as NodeJS.ErrnoException).code === "EADDRINUSE") {
-      throw new ShoalError("conflict", `Port ${port} is in use`, "Pick another with --port");
+      throw new RoduError("conflict", `Port ${port} is in use`, "Pick another with --port");
     }
     throw error;
   }
@@ -205,7 +213,7 @@ async function serveWeb(
   };
   process.once("SIGINT", onSignal);
   process.once("SIGTERM", onSignal);
-  io.out(`Shoal board for ${ws.dir}`);
+  io.out(`Rodu board for ${ws.dir}`);
   // The token rides in the fragment, which browsers never send to the server.
   const link = `${server.url}#token=${server.token}`;
   io.out(`Open: ${link}`);
@@ -233,7 +241,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
   const { values, positionals } = parsed;
   const [command, ...args] = positionals;
   if (values.version) {
-    io.out(`shoal ${VERSION}`);
+    io.out(`rodu ${VERSION}`);
     return 0;
   }
   if (!command || values.help) {
@@ -269,7 +277,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
         case "ls": {
           const limit = values.limit === undefined ? 50 : Number(values.limit);
           if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
-            throw new ShoalError("invalid", "--limit must be a whole number from 1 to 100");
+            throw new RoduError("invalid", "--limit must be a whole number from 1 to 100");
           }
           const result = ws.service.search(ws.actor, args.join(" "), { limit });
           for (const item of result.items) io.out(itemLine(item));
@@ -279,14 +287,14 @@ export async function run(argv: string[], io: Io): Promise<number> {
           return 0;
         }
         case "show": {
-          if (!args[0]) throw new ShoalError("invalid", "show needs an item key");
+          if (!args[0]) throw new RoduError("invalid", "show needs an item key");
           io.out(ws.service.context(args[0]));
           return 0;
         }
         case "mv": {
           const [ref, ...status] = args;
           if (!ref || status.length === 0) {
-            throw new ShoalError("invalid", "mv needs an item key and a status");
+            throw new RoduError("invalid", "mv needs an item key and a status");
           }
           io.out(itemLine(ws.service.transition(ws.actor, ref, status.join(" "))));
           return 0;
@@ -299,7 +307,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
       ws.store.close();
     }
   } catch (error) {
-    if (error instanceof ShoalError) {
+    if (error instanceof RoduError) {
       io.err(`error: ${error.message}${error.hint ? `\nhint: ${error.hint}` : ""}`);
       return 1;
     }

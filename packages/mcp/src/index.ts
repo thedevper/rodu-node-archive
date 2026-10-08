@@ -1,1 +1,1 @@
-export { createShoalMcpServer } from "./server.ts";
+export { createRoduMcpServer } from "./server.ts";

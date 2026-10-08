@@ -7,17 +7,17 @@ import {
   type Collection,
   type Comment,
   type Item,
-  ShoalError,
-  type ShoalErrorCode,
-  type ShoalService,
-} from "@shoal/core";
-import { parseQuery, toSql } from "@shoal/query";
+  RoduError,
+  type RoduErrorCode,
+  type RoduService,
+} from "@rodu/core";
+import { parseQuery, toSql } from "@rodu/query";
 import { z } from "zod";
 
 // The local API behind the web board. See ../README.md for the endpoint and error contract.
 
 export interface WebServerOptions {
-  service: ShoalService;
+  service: RoduService;
   actor: Actor;
   /** 0 picks a free port. */
   port?: number;
@@ -61,7 +61,7 @@ const MAX_BODY_BYTES = 1024 * 1024;
 const BOARD_PAGE = 100;
 const BOARD_MAX_ITEMS = 1000;
 
-const STATUS: Record<ShoalErrorCode, number> = {
+const STATUS: Record<RoduErrorCode, number> = {
   invalid: 400,
   limit: 400,
   not_found: 404,
@@ -121,7 +121,7 @@ function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
   const result = schema.safeParse(body);
   if (result.success) return result.data;
   const issues = result.error.issues.map((i) => `${i.path.join(".") || "body"}: ${i.message}`);
-  throw new ShoalError("invalid", `Invalid request: ${issues.join("; ")}`);
+  throw new RoduError("invalid", `Invalid request: ${issues.join("; ")}`);
 }
 
 const digest = (value: string): Buffer => createHash("sha256").update(value).digest();
@@ -174,7 +174,7 @@ export async function startWebServer(options: WebServerOptions): Promise<Running
       // Compile it alone first so errors point into the user's text, not the scoped query.
       toSql(filter, { me: actor.principalId, now: new Date() });
       if (parseQuery(filter).orderBy.length > 0) {
-        throw new ShoalError("invalid", "The board orders cards itself", "Remove ORDER BY");
+        throw new RoduError("invalid", "The board orders cards itself", "Remove ORDER BY");
       }
       query += ` AND (${filter})`;
     }
@@ -237,7 +237,7 @@ export async function startWebServer(options: WebServerOptions): Promise<Running
     }
     if (method === "GET" && path === "/api/board") {
       const collection = url.searchParams.get("collection");
-      if (!collection) throw new ShoalError("invalid", "collection is required");
+      if (!collection) throw new RoduError("invalid", "collection is required");
       return { status: 200, data: board(collection, url.searchParams.get("q") ?? "") };
     }
     if (method === "POST" && path === "/api/items") {
@@ -426,7 +426,7 @@ function sendError(res: ServerResponse, error: unknown): void {
     res.destroy();
     return;
   }
-  if (error instanceof ShoalError) {
+  if (error instanceof RoduError) {
     sendJson(res, STATUS[error.code], {
       code: error.code,
       message: error.message,

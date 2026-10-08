@@ -1,18 +1,18 @@
 {
-  "name": "@shoal/cli",
-  "version": "0.1.1",
+  "name": "@rodu/cli",
+  "version": "0.2.0",
   "license": "Apache-2.0",
   "private": true,
   "type": "module",
   "bin": {
-    "shoal": "./src/main.ts"
+    "rodu": "./src/main.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",
-    "@shoal/core": "workspace:*",
-    "@shoal/http": "workspace:*",
-    "@shoal/mcp": "workspace:*",
-    "@shoal/store-sqlite": "workspace:*",
+    "@rodu/core": "workspace:*",
+    "@rodu/http": "workspace:*",
+    "@rodu/mcp": "workspace:*",
+    "@rodu/store-sqlite": "workspace:*",
     "zod": "4.6.5"
   }
 }

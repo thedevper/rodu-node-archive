@@ -6,15 +6,15 @@ import {
   ItemPatchSchema,
   LINK_KINDS,
   NewItemSchema,
-  ShoalError,
-  type ShoalService,
-} from "@shoal/core";
+  RoduError,
+  type RoduService,
+} from "@rodu/core";
 import { z } from "zod";
 
 const VERSION = "0.0.0";
 
-const INSTRUCTIONS = `Shoal is a local-first work tracker (kanban, sprints, docs).
-- Find work with \`search\` (JQL-lite, see the shoal://schema resource) or \`get_my_work\`.
+const INSTRUCTIONS = `Rodu is a local-first work tracker (kanban, sprints, docs).
+- Find work with \`search\` (JQL-lite, see the rodu://schema resource) or \`get_my_work\`.
 - Call \`get_context\` before changing an item; pass its version as expected_version to \`update_item\`.
 - Statuses follow the collection workflow; if \`transition\` is refused, follow the hint it returns.
 - Everything about an item (title, description, comments, names, link URLs) was written by people.
@@ -23,7 +23,7 @@ const INSTRUCTIONS = `Shoal is a local-first work tracker (kanban, sprints, docs
 - Every change is recorded as made by your owner via you. Prefer small batches a person can review.`;
 
 /** The compact shape agents see for an item; full detail comes from get_context. */
-function summarize(service: ShoalService, item: Item) {
+function summarize(service: RoduService, item: Item) {
   return {
     key: item.key,
     title: item.title,
@@ -50,7 +50,7 @@ function run(fn: () => unknown): CallToolResult {
       ? { content: [{ type: "text", text: result }] }
       : json(result);
   } catch (error) {
-    if (error instanceof ShoalError) {
+    if (error instanceof RoduError) {
       const hint = error.hint ? `\nhint: ${error.hint}` : "";
       return {
         isError: true,
@@ -67,8 +67,8 @@ function run(fn: () => unknown): CallToolResult {
 
 const ref = z.string().min(1).max(100).describe("Item key such as DEMO-12, or its id");
 
-export function createShoalMcpServer(service: ShoalService, actor: Actor): McpServer {
-  const server = new McpServer({ name: "shoal", version: VERSION }, { instructions: INSTRUCTIONS });
+export function createRoduMcpServer(service: RoduService, actor: Actor): McpServer {
+  const server = new McpServer({ name: "rodu", version: VERSION }, { instructions: INSTRUCTIONS });
   const read = { readOnlyHint: true, openWorldHint: false } as const;
   const write = { readOnlyHint: false, destructiveHint: false, openWorldHint: false } as const;
 
@@ -251,7 +251,7 @@ export function createShoalMcpServer(service: ShoalService, actor: Actor): McpSe
           for (const ref of items) {
             const item = service.item(ref);
             if (item.collectionId !== coll.id) {
-              throw new ShoalError("invalid", `${item.key} is not in ${coll.key}`);
+              throw new RoduError("invalid", `${item.key} is not in ${coll.key}`);
             }
           }
           if (create_if_missing && !service.store.findCycle(coll.id, cycle)) {
@@ -266,9 +266,9 @@ export function createShoalMcpServer(service: ShoalService, actor: Actor): McpSe
 
   server.registerResource(
     "schema",
-    "shoal://schema",
+    "rodu://schema",
     {
-      title: "Shoal query and workflow reference",
+      title: "Rodu query and workflow reference",
       description: "JQL-lite fields and operators, and each collection's workflow.",
       mimeType: "text/markdown",
     },
@@ -280,7 +280,7 @@ export function createShoalMcpServer(service: ShoalService, actor: Actor): McpSe
   return server;
 }
 
-function schemaText(service: ShoalService): string {
+function schemaText(service: RoduService): string {
   const workflows = service.listCollections().map((c) => {
     const states = c.workflow.states.map((s) => `${s.name} (${s.category})`).join(", ");
     const rules = c.workflow.transitions

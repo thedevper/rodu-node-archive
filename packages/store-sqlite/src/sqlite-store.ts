@@ -6,12 +6,12 @@ import type {
   Item,
   Link,
   Principal,
+  RoduEvent,
   SearchRequest,
   SearchResult,
-  ShoalEvent,
   Store,
-} from "@shoal/core";
-import { toSql } from "@shoal/query";
+} from "@rodu/core";
+import { toSql } from "@rodu/query";
 
 const SCHEMA_VERSION = 1;
 
@@ -188,7 +188,7 @@ function toLink(r: Row): Link {
   };
 }
 
-function toEvent(r: Row): ShoalEvent {
+function toEvent(r: Row): RoduEvent {
   return {
     id: str(r.id),
     requestId: str(r.request_id),
@@ -221,7 +221,7 @@ export class SqliteStore implements Store {
   private migrate(): void {
     const version = Number(this.one("PRAGMA user_version")?.user_version ?? 0);
     if (version > SCHEMA_VERSION) {
-      throw new Error(`Database schema ${version} is newer than this Shoal (${SCHEMA_VERSION})`);
+      throw new Error(`Database schema ${version} is newer than this Rodu (${SCHEMA_VERSION})`);
     }
     if (version === 0) {
       this.transaction(() => {
@@ -533,7 +533,7 @@ export class SqliteStore implements Store {
 
   // --- events and idempotency ---
 
-  appendEvent(e: ShoalEvent): void {
+  appendEvent(e: RoduEvent): void {
     this.run(
       `INSERT INTO events (id, request_id, actor_id, via_agent_id, action, target_id, before, after, at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -549,7 +549,7 @@ export class SqliteStore implements Store {
     );
   }
 
-  listEvents(targetId: string): ShoalEvent[] {
+  listEvents(targetId: string): RoduEvent[] {
     return this.all("SELECT * FROM events WHERE target_id = ? ORDER BY seq", targetId).map(toEvent);
   }
 

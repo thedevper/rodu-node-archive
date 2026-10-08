@@ -1,6 +1,6 @@
-// Drives a built shoal binary the way a new user would: init, add, ls, the web board and MCP.
+// Drives a built rodu binary the way a new user would: init, add, ls, the web board and MCP.
 //
-//   pnpm smoke:binary [path/to/shoal]   (default: the binary built for this machine)
+//   pnpm smoke:binary [path/to/rodu]   (default: the binary built for this machine)
 
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
@@ -11,13 +11,13 @@ const ROOT = resolve(import.meta.dirname, "..");
 const HOST = process.platform === "win32" ? "windows-x64" : `${process.platform}-${process.arch}`;
 const binary = resolve(
   process.argv[2] ??
-    join(ROOT, "dist/sea", HOST, process.platform === "win32" ? "shoal.exe" : "shoal"),
+    join(ROOT, "dist/sea", HOST, process.platform === "win32" ? "rodu.exe" : "rodu"),
 );
 if (!existsSync(binary)) throw new Error(`${binary} not found: run pnpm build:binaries`);
 
-const cwd = mkdtempSync(join(tmpdir(), "shoal-smoke-"));
-const { SHOAL_DIR: _ignored, ...env } = process.env;
-const shoal = (...args: string[]) => execFileSync(binary, args, { cwd, env, encoding: "utf8" });
+const cwd = mkdtempSync(join(tmpdir(), "rodu-smoke-"));
+const { RODU_DIR: _ignored, ...env } = process.env;
+const rodu = (...args: string[]) => execFileSync(binary, args, { cwd, env, encoding: "utf8" });
 
 /** Windows will not delete a folder a live process still uses: stop it and wait. */
 async function stop(child: ChildProcess): Promise<void> {
@@ -53,11 +53,11 @@ function waitFor(child: ChildProcess, until: RegExp): Promise<RegExpMatchArray> 
 }
 
 try {
-  const version = shoal("--version").trim();
-  check("--version", /^shoal \d+\.\d+\.\d+$/.test(version), version);
-  shoal("init", "--name", "smoke", "--key", "SMK", "--title", "Smoke test");
-  shoal("add", "First", "card", "--assignee", "me");
-  const list = shoal("ls");
+  const version = rodu("--version").trim();
+  check("--version", /^rodu \d+\.\d+\.\d+$/.test(version), version);
+  rodu("init", "--name", "smoke", "--key", "SMK", "--title", "Smoke test");
+  rodu("add", "First", "card", "--assignee", "me");
+  const list = rodu("ls");
   check("init, add, ls", list.includes("SMK-1") && list.includes("First card"), list.trim());
 
   const web = spawn(binary, ["web", "--port", "0", "--no-open"], { cwd, env });

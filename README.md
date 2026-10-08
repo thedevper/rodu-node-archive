@@ -1,4 +1,4 @@
-# Shoal
+# Rodu
 
 Local-first, AI-first work tracking: kanban, sprints and (soon) docs for small teams.
 Your data lives on your machine; teams sync through transports they own. Agents are first-class
@@ -8,21 +8,26 @@ users through MCP.
 
 ## Install
 
-One self-contained `shoal` binary (Node, SQLite and the web board inside); nothing else to install.
+One self-contained `rodu` binary (Node, SQLite and the web board inside); nothing else to install.
 
 | | |
 |---|---|
-| macOS (Homebrew) | `brew install TheDevper/tap/shoal` |
-| macOS (no Homebrew) | `curl -fsSL https://raw.githubusercontent.com/TheDevper/shoal/v0.1.1/packaging/install.sh \| sh` |
-| Windows (Scoop) | `scoop bucket add thedevper https://github.com/TheDevper/scoop-bucket` then `scoop install shoal` |
-| Windows (PowerShell) | `irm https://raw.githubusercontent.com/TheDevper/shoal/v0.1.1/packaging/install.ps1 \| iex` |
+| macOS (Homebrew) | `brew install TheDevper/tap/rodu` |
+| macOS (no Homebrew) | `curl -fsSL https://raw.githubusercontent.com/TheDevper/rodu/v0.2.0/packaging/install.sh \| sh` |
+| Windows (Scoop) | `scoop bucket add thedevper https://github.com/TheDevper/scoop-bucket` then `scoop install rodu` |
+| Windows (PowerShell) | `irm https://raw.githubusercontent.com/TheDevper/rodu/v0.2.0/packaging/install.ps1 \| iex` |
+
+**Upgrading from Shoal:** Rodu was called Shoal until 0.2.0. Homebrew moves you over with
+`brew update && brew upgrade`; with Scoop, `scoop uninstall shoal` then `scoop install rodu`. In
+each workspace, rename the folder `.shoal` to `.rodu` and the file `shoal.db` inside it to
+`rodu.db`; `rodu` tells you where.
 
 The script URLs name a release tag, so they run that release's reviewed script; each release
 updates them. Then, in any folder you want to track work in:
 
 ```sh
-shoal init --name your-name --key DEMO --title "Demo project"
-shoal web        # opens the board in your browser
+rodu init --name your-name --key DEMO --title "Demo project"
+rodu web        # opens the board in your browser
 ```
 
 Builds exist for macOS (Apple silicon and Intel) and Windows x64, which also runs on Windows on
@@ -36,21 +41,21 @@ Requires Node 24+ (runs TypeScript directly, no build step) and pnpm.
 
 ```sh
 pnpm install
-pnpm shoal init --name your-name --key DEMO --title "Demo project"
-pnpm shoal add Fix login crash --type bug --priority urgent --assignee me
-pnpm shoal ls "assignee = me() ORDER BY priority"
-pnpm shoal show DEMO-1
-pnpm shoal mv DEMO-1 "In Progress"
+pnpm rodu init --name your-name --key DEMO --title "Demo project"
+pnpm rodu add Fix login crash --type bug --priority urgent --assignee me
+pnpm rodu ls "assignee = me() ORDER BY priority"
+pnpm rodu show DEMO-1
+pnpm rodu mv DEMO-1 "In Progress"
 ```
 
-`init` creates `.shoal/` (database and `config.json`) in the current directory. Commands use the
-nearest `.shoal/` above the working directory, or `$SHOAL_DIR`.
+`init` creates `.rodu/` (database and `config.json`) in the current directory. Commands use the
+nearest `.rodu/` above the working directory, or `$RODU_DIR`.
 
 ## Web board
 
 ```sh
 pnpm build:web          # once, and after UI changes
-pnpm shoal web          # prints http://127.0.0.1:4870/#token=...
+pnpm rodu web          # prints http://127.0.0.1:4870/#token=...
 ```
 
 Open the printed link. Drag cards between columns to change status (workflow rules apply and
@@ -60,18 +65,18 @@ per-run token; see [`packages/http`](packages/http/README.md) for the API and se
 
 ## Use it from an agent (MCP)
 
-Add Shoal to Claude Code, from the directory that holds `.shoal/`:
+Add Rodu to Claude Code, from the directory that holds `.rodu/`:
 
 ```sh
-claude mcp add shoal -- node /path/to/shoal/apps/cli/src/main.ts mcp
+claude mcp add rodu -- node /path/to/rodu/apps/cli/src/main.ts mcp
 ```
 
 Tools: `search`, `get_my_work`, `get_context`, `create_items`, `update_item`, `transition`,
-`comment`, `link`, `list_collections`, `cycle_report`, `plan_cycle`; resource `shoal://schema`.
+`comment`, `link`, `list_collections`, `cycle_report`, `plan_cycle`; resource `rodu://schema`.
 Every change an agent makes is recorded as "owner via agent". Workflow rules are enforced in the
 domain, and refusals carry a hint the agent can act on.
 
-Only run `shoal mcp` against a workspace you trust: it serves whatever `.shoal/` it finds.
+Only run `rodu mcp` against a workspace you trust: it serves whatever `.rodu/` it finds.
 
 ## Query language (JQL-lite)
 
@@ -88,18 +93,18 @@ collection, cycle, parent, created, updated, due.
 
 | Package | Role |
 |---|---|
-| `packages/core` | Domain model, workflow rules, `ShoalService`, `Store` interface |
+| `packages/core` | Domain model, workflow rules, `RoduService`, `Store` interface |
 | `packages/query` | JQL-lite parser and SQL compiler |
 | `packages/store-sqlite` | Local store on `node:sqlite` with FTS5 |
 | `packages/mcp` | MCP server |
 | `packages/http` | Local JSON API for the web board |
 | `apps/web` | React kanban board (Vite) |
-| `apps/cli` | `shoal` command |
+| `apps/cli` | `rodu` command |
 
 ## Releasing
 
 ```sh
-pnpm build:binaries   # dist/release: archives, SHA256SUMS, shoal.rb, shoal.json, install scripts
+pnpm build:binaries   # dist/release: archives, SHA256SUMS, rodu.rb, rodu.json, install scripts
 pnpm smoke:binary     # drives the binary built for this machine
 ```
 
@@ -108,8 +113,8 @@ SHASUMS256.txt) and must run on a Mac, which signs the macOS binaries. CI
 (`.github/workflows/ci.yml`) tests on macOS and Windows, builds the binaries, installs each one
 with the user-facing script on its own OS and smoke-tests it. Pushing a `vX.Y.Z` tag (matching
 `apps/cli/package.json` and `apps/cli/src/version.ts`) publishes a GitHub release. Then copy
-`shoal.rb` to the `TheDevper/homebrew-tap` repository (`Formula/shoal.rb`) and `shoal.json` to
-`TheDevper/scoop-bucket` (`bucket/shoal.json`).
+`rodu.rb` to the `TheDevper/homebrew-tap` repository (`Formula/rodu.rb`) and `rodu.json` to
+`TheDevper/scoop-bucket` (`bucket/rodu.json`).
 
 ## Development
 
@@ -125,5 +130,5 @@ Every commit needs a `Signed-off-by` line (`git commit -s`): see [CONTRIBUTING.m
 ## License
 
 [Apache License 2.0](LICENSE). Copyright 2026 TheDevper. The license does not grant use of the
-Shoal name. The release archives also carry `THIRD-PARTY-NOTICES.txt` for Node.js and the npm
+Rodu name. The release archives also carry `THIRD-PARTY-NOTICES.txt` for Node.js and the npm
 packages built into the binary.
