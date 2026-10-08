@@ -80,11 +80,15 @@ from Loro's change events, not rebuilt by reading everything.
 
 ## Proposed design for the open problems
 
-1. **Card numbers.** Allocate numbers locally as now. After a merge, the card with the smaller id
-   (UUIDv7, so the one created first) keeps a contested number, and the other is renumbered to the
-   next free number. Its old key stays as an alias that resolves with a note. To decide: whether
-   keys may change at all, or whether offline-created cards should get a provisional key until the
-   next sync.
+1. **Card numbers (decided 2026-10-09: provisional keys).** A new card gets a provisional key
+   built from its id, such as `DEMO-~a3f9`, and keeps it until it is numbered. Exactly one peer per
+   workspace, the *numbering peer*, gives out real numbers: when it imports a provisional card, it
+   assigns the next number and writes it to the card. Two peers numbering at once would collide
+   again without a server, so no other peer ever numbers. The numbering peer is the one that ran
+   `init`. A command can hand the role to another peer if that machine is gone for good. A real
+   number never changes once given, and the provisional key keeps resolving to the card as an
+   alias, so links written before the sync still work. Rejected: renumbering the later card after
+   a merge, because then a key someone has already shared can point to another card.
 2. **Deletes** become `archivedAt`. Nothing is removed from the document.
 3. **Rules** are checked locally at write time, as today. After every import, re-check the
    touched cards, and show any that now break a rule in a "needs attention" view. Never undo
@@ -100,7 +104,9 @@ from Loro's change events, not rebuilt by reading everything.
 
 ## Next steps
 
-1. Decide the card-number policy (renumber with alias, or provisional keys).
+1. Design provisional keys and the numbering peer in the core model. This includes the alias
+   lookup and the hand-over command. It also covers a single-user workspace, where the numbering
+   peer is the only peer and every card is numbered immediately, as today.
 2. Build `store-loro` implementing `Store`, keeping the SQLite index in sync from Loro events, and
    run the existing service tests against it.
 3. Add a `rodu sync <folder>` command for the shared-folder transport, and test it with two
