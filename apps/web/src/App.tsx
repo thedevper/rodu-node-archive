@@ -230,12 +230,8 @@ function Workspace({ api }: { api: Api }) {
                 });
               }}
               onCreate={(title) =>
-                run(async () => {
-                  const item = await api.create(board.collection.key, { title });
-                  if (item.status.toLowerCase() !== state.name.toLowerCase()) {
-                    await api.transition(item.key, state.name);
-                  }
-                })
+                // One request: if the workflow refuses this column, no card is created.
+                run(() => api.create(board.collection.key, { title }, state.name))
               }
             />
           ))

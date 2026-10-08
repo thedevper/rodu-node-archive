@@ -62,6 +62,7 @@ describe("shoal cli", () => {
   });
 
   it("serves the board with a token link", async () => {
+    const sigints = process.listenerCount("SIGINT");
     await run(["init", "--name", "alice", "--key", "MED"], io);
     expect(await run(["web"], { ...io, env: { SHOAL_WEB_DIST: "missing-dist" } })).toBe(1);
     expect(err.at(-1)).toContain("pnpm build:web");
@@ -83,7 +84,17 @@ describe("shoal cli", () => {
     const [base, token] = link.split("#token=");
     const me = await fetch(`${base}api/me`, { headers: { Authorization: `Bearer ${token}` } });
     expect(await me.json()).toEqual({ name: "alice" });
+
+    const port = new URL(base as string).port;
+    expect(await run(["web", "--port", port], { ...io, env: { SHOAL_WEB_DIST: dist } })).toBe(1);
+    expect(err.at(-1)).toContain(`Port ${port} is in use`);
+    expect(await run(["web", "--port", "abc"], { ...io, env: { SHOAL_WEB_DIST: dist } })).toBe(1);
+    expect(err.at(-1)).toContain("--port");
+
     await server?.close();
+    // Stopping twice (Ctrl+C after close) is harmless, and no signal handlers are left behind.
+    await expect(server?.close()).resolves.toBeUndefined();
+    expect(process.listenerCount("SIGINT")).toBe(sigints);
   });
 
   it("rejects a bad --limit without a stack trace", async () => {

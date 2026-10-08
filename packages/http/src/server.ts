@@ -99,7 +99,13 @@ class HttpError extends Error {
 }
 
 const Ref = z.string().min(1).max(100);
-const CreateBody = z.object({ collection: z.string().min(1).max(20), item: z.unknown() }).strict();
+const CreateBody = z
+  .object({
+    collection: z.string().min(1).max(20),
+    item: z.unknown(),
+    status: z.string().min(1).max(40).optional(),
+  })
+  .strict();
 const PatchBody = z
   .object({ patch: z.unknown(), expectedVersion: z.number().int().min(1).optional() })
   .strict();
@@ -186,8 +192,26 @@ export async function startWebServer(options: WebServerOptions): Promise<Running
   }
 
   async function api(method: string, path: string, url: URL, req: IncomingMessage) {
-    const body = method === "POST" || method === "PATCH" ? await readJson(req) : undefined;
     const item = /^\/api\/items\/([^/]+)(\/[a-z]+)?$/.exec(path);
+    const action = item?.[2] ?? "";
+    // Resolve the route before reading any body, so unknown paths are 404 whatever they send.
+    const allowed = ["/api/me", "/api/collections", "/api/principals", "/api/board"].includes(path)
+      ? ["GET"]
+      : path === "/api/items"
+        ? ["POST"]
+        : item && action === ""
+          ? ["GET", "PATCH"]
+          : item && ["/transition", "/move", "/comments"].includes(action)
+            ? ["POST"]
+            : null;
+    if (!allowed) throw new HttpError(404, "not_found", `No route ${method} ${path}`);
+    if (!allowed.includes(method)) {
+      throw new HttpError(
+        405,
+        "invalid",
+        `${method} is not allowed here; use ${allowed.join(" or ")}`,
+      );
+    }
     let key: string | null = null;
     if (item) {
       try {
@@ -196,7 +220,7 @@ export async function startWebServer(options: WebServerOptions): Promise<Running
         throw new HttpError(400, "invalid", "Bad item key");
       }
     }
-    const action = item?.[2] ?? "";
+    const body = method === "POST" || method === "PATCH" ? await readJson(req) : undefined;
 
     if (method === "GET" && path === "/api/me") {
       return { status: 200, data: { name: name(actor.principalId) } };
@@ -215,7 +239,14 @@ export async function startWebServer(options: WebServerOptions): Promise<Running
     }
     if (method === "POST" && path === "/api/items") {
       const input = parseBody(CreateBody, body);
-      const [created] = service.createItems(actor, input.collection, [input.item]);
+      // Created straight into a column: if the workflow refuses that status, nothing is created.
+      const created = service.store.transaction(() => {
+        const [made] = service.createItems(actor, input.collection, [input.item]);
+        if (!made || !input.status || made.status.toLowerCase() === input.status.toLowerCase()) {
+          return made;
+        }
+        return service.transition(actor, made.key, input.status);
+      });
       return { status: 201, data: created ? itemView(created) : null };
     }
     if (key && action === "" && method === "GET") {

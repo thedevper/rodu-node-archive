@@ -456,17 +456,8 @@ export class ShoalService {
       after?.rank ?? (before ? this.store.adjacentRank(id, before.rank, "above", item.id) : null);
     const high =
       before?.rank ?? (after ? this.store.adjacentRank(id, after.rank, "below", item.id) : null);
-    let rank: string;
-    try {
-      rank = rankBetween(low, high);
-    } catch {
-      throw new ShoalError(
-        "conflict",
-        "The list changed while moving",
-        "Reload the list and try again",
-      );
-    }
-    return this.writeItem(uuidv7(), actor, item, { rank });
+    // low < high holds here (checked above, or strict adjacency), so a throw means corrupt ranks.
+    return this.writeItem(uuidv7(), actor, item, { rank: rankBetween(low, high) });
   }
 
   transition(actor: Actor, ref: string, to: string): Item {

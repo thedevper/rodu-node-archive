@@ -32,6 +32,8 @@ Every error is JSON `{ "code": string, "message": string, "hint": string | null 
 | `not_found` | 404 |
 | `conflict` | 409 (stale `expectedVersion`, neighbours moved) |
 | `rule_violation` | 422 (workflow refused; `hint` says how to fix it) |
+| known path, wrong method | 405 `invalid` |
+| unknown path | 404 `not_found` (before the body is read) |
 | anything unexpected | 500 `internal`, no details |
 
 ## Endpoints
@@ -45,7 +47,7 @@ Every error is JSON `{ "code": string, "message": string, "hint": string | null 
 | `GET /api/collections` | | `200 [{ key, name, states: [{ name, category }] }]` |
 | `GET /api/principals` | | `200 [{ name, kind }]` |
 | `GET /api/board?collection=KEY&q=JQL` | | `200 { collection, items: ItemView[], total }`, items in rank order; `q` is a JQL-lite filter without `ORDER BY`, scoped to the collection; at most 1000 items |
-| `POST /api/items` | `{ collection, item: { title, type?, priority?, assignee?, ... } }` | `201 ItemView` |
+| `POST /api/items` | `{ collection, item: { title, type?, priority?, assignee?, ... }, status? }` | `201 ItemView`; with `status` the item is created and moved there in one transaction, so a workflow refusal (422) creates nothing |
 | `GET /api/items/:key` | | `200 { item: ItemView, comments: [{ id, author, via, body, createdAt }] }` |
 | `PATCH /api/items/:key` | `{ patch: { title?, body?, priority?, assignee?, ... }, expectedVersion? }` | `200 ItemView` |
 | `POST /api/items/:key/transition` | `{ to: status, after?: key, before?: key }` | `200 ItemView`; with `after`/`before` the status change and the position are applied in one transaction |

@@ -462,11 +462,15 @@ export class SqliteStore implements Store {
   }
 
   listChildren(parentId: string): Item[] {
-    return this.all("SELECT * FROM items WHERE parent_id = ? ORDER BY rank", parentId).map(toItem);
+    return this.all("SELECT * FROM items WHERE parent_id = ? ORDER BY rank, id", parentId).map(
+      toItem,
+    );
   }
 
   listItemsInCycle(cycleId: string): Item[] {
-    return this.all("SELECT * FROM items WHERE cycle_id = ? ORDER BY rank", cycleId).map(toItem);
+    return this.all("SELECT * FROM items WHERE cycle_id = ? ORDER BY rank, id", cycleId).map(
+      toItem,
+    );
   }
 
   searchItems(request: SearchRequest): SearchResult {

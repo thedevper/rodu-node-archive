@@ -174,6 +174,33 @@ describe("board API", () => {
     expect(json(ok).status).toBe("In Progress");
   });
 
+  it("creates a card straight into a column, or not at all", async () => {
+    const todo = await send("POST", "/api/items", {
+      body: { collection: "MED", item: { title: "Planned" }, status: "Todo" },
+    });
+    expect(todo.status).toBe(201);
+    expect(json(todo)).toMatchObject({ key: "MED-1", status: "Todo" });
+
+    const refused = await send("POST", "/api/items", {
+      body: { collection: "MED", item: { title: "Unowned" }, status: "In Progress" },
+    });
+    expect(refused.status).toBe(422);
+    const board = json(await send("GET", "/api/board?collection=MED"));
+    expect(board.items.map((i: { title: string }) => i.title)).toEqual(["Planned"]);
+  });
+
+  it("answers 405 for a known path with the wrong method and 404 before reading a body", async () => {
+    const wrong = await send("DELETE", "/api/items/MED-1");
+    expect(wrong.status).toBe(405);
+    expect(json(wrong)).toMatchObject({ code: "invalid" });
+    expect((await send("PUT", "/api/board?collection=MED")).status).toBe(405);
+    const unknown = await send("POST", "/api/nope", {
+      raw: "x",
+      headers: { "Content-Type": "text/plain" },
+    });
+    expect(unknown.status).toBe(404);
+  });
+
   it("scopes the board filter to the collection", async () => {
     await send("POST", "/api/items", { body: { collection: "MED", item: { title: "Mine" } } });
     const breakout = await send(
@@ -236,6 +263,6 @@ describe("board API", () => {
     const res = await send("POST", "/api/items/MED-1/transition", { body: { to: "", extra: 1 } });
     expect(res.status).toBe(400);
     expect(json(res).message).toContain("Invalid request");
-    expect((await send("DELETE", "/api/items/MED-1")).status).toBe(404);
+    expect((await send("DELETE", "/api/items/MED-1")).status).toBe(405);
   });
 });

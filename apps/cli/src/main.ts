@@ -153,12 +153,23 @@ async function serveWeb(io: Io, portOption: string | undefined): Promise<void> {
     }
     throw error;
   }
-  const stop = async () => {
-    await server.close();
-    ws.store.close();
+  // Idempotent: Ctrl+C after close(), or SIGINT then SIGTERM, must not close twice.
+  let stopping: Promise<void> | null = null;
+  const onSignal = () => void stop();
+  const stop = () => {
+    stopping ??= (async () => {
+      process.off("SIGINT", onSignal);
+      process.off("SIGTERM", onSignal);
+      try {
+        await server.close();
+      } finally {
+        ws.store.close();
+      }
+    })();
+    return stopping;
   };
-  process.once("SIGINT", () => void stop());
-  process.once("SIGTERM", () => void stop());
+  process.once("SIGINT", onSignal);
+  process.once("SIGTERM", onSignal);
   io.out(`Shoal board for ${ws.dir}`);
   // The token rides in the fragment, which browsers never send to the server.
   io.out(`Open: ${server.url}#token=${server.token}`);

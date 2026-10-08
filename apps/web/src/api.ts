@@ -124,8 +124,8 @@ export function createApi(token: string) {
         "GET",
         `/api/board?collection=${encodeURIComponent(collection)}&q=${encodeURIComponent(q)}`,
       ),
-    create: (collection: string, fields: { title: string; type?: ItemType }) =>
-      call<ItemView>("POST", "/api/items", { collection, item: fields }),
+    create: (collection: string, fields: { title: string; type?: ItemType }, status?: string) =>
+      call<ItemView>("POST", "/api/items", { collection, item: fields, status }),
     item: (key: string) => call<{ item: ItemView; comments: CommentView[] }>("GET", item(key)),
     update: (key: string, patch: Record<string, unknown>, expectedVersion: number) =>
       call<ItemView>("PATCH", item(key), { patch, expectedVersion }),

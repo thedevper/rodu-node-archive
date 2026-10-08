@@ -267,6 +267,39 @@ describe("cycles", () => {
   });
 });
 
+describe("moving with corrupt ranks", () => {
+  it("reports a broken rank as an internal error, not as a stale list", () => {
+    const dir = mkdtempSync(join(tmpdir(), "shoal-store-"));
+    const path = join(dir, "shoal.db");
+    const store = new SqliteStore(path);
+    const raw = new DatabaseSync(path);
+    try {
+      const svc = new ShoalService(store);
+      const human = svc.createPrincipal({ name: "bob", kind: "human" });
+      const bob = { principalId: human.id, viaAgentId: null };
+      svc.createCollection(bob, { key: "ops", name: "Ops" });
+      svc.createItems(bob, "OPS", [{ title: "A" }, { title: "B" }, { title: "C" }]);
+      raw.prepare("UPDATE items SET rank = ? WHERE title = ?").run("V0", "A");
+      raw.prepare("UPDATE items SET rank = ? WHERE title = ?").run("W", "B");
+      raw.prepare("UPDATE items SET rank = ? WHERE title = ?").run("X", "C");
+      const thrown = (() => {
+        try {
+          svc.moveItem(bob, "OPS-3", { after: "OPS-1" });
+        } catch (e) {
+          return e;
+        }
+        return null;
+      })();
+      expect(thrown).toBeInstanceOf(Error);
+      expect(thrown).not.toBeInstanceOf(ShoalError);
+    } finally {
+      raw.close();
+      store.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("transactions", () => {
   it("reads while another connection holds the write lock", () => {
     const dir = mkdtempSync(join(tmpdir(), "shoal-store-"));

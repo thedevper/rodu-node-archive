@@ -116,6 +116,24 @@ test("edits an item and comments in the detail panel", async ({ page }) => {
   await expect.poll(() => keysIn(page, "In Progress")).toContain("MED-2");
 });
 
+test("adds a card straight into a column, or not at all when the workflow refuses", async ({
+  page,
+}) => {
+  await page.goto(link);
+  const todo = column(page, "Todo");
+  await todo.getByRole("button", { name: "Add item to Todo" }).click();
+  await todo.getByLabel("New item title").fill("Plan sprint");
+  await todo.getByLabel("New item title").press("Enter");
+  await expect(todo).toContainText("Plan sprint");
+
+  const doing = column(page, "In Progress");
+  await doing.getByRole("button", { name: "Add item to In Progress" }).click();
+  await doing.getByLabel("New item title").fill("Nobody owns this");
+  await doing.getByLabel("New item title").press("Enter");
+  await expect(page.getByRole("alert")).toContainText("assign it first");
+  expect(shoal("ls", 'title ~ "Nobody"').trim()).toBe("");
+});
+
 test("a failing detail load reports once instead of retrying forever", async ({ page }) => {
   let loads = 0;
   await page.route("**/api/items/MED-3", (route) => {
