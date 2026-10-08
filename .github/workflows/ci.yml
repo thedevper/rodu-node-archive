@@ -1,0 +1,115 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26.11.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+
+  binaries:
+    # Builds every target here: macOS binaries must be signed on a Mac.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26.11.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Tag matches the version in the code
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version=$(node -p "require('./apps/cli/package.json').version")
+          [ "$GITHUB_REF_NAME" = "v$version" ] || { echo "tag $GITHUB_REF_NAME != v$version"; exit 1; }
+          # The install commands in the README must point at this release's scripts.
+          [ "$(grep -c "TheDevper/shoal/v$version/packaging/install" README.md)" = 2 ] ||
+            { echo "README install URLs do not name v$version"; exit 1; }
+      - run: pnpm build:binaries
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: dist/release/
+          if-no-files-found: error
+
+  smoke:
+    # Installs each binary with the same script users run, on its own OS, and drives it.
+    needs: binaries
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+          - os: macos-15-intel
+          - os: windows-latest
+            shell: powershell
+          - os: windows-latest
+            shell: pwsh
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26.11.0
+          # No pnpm here: only the built binary and Node for the smoke script.
+          package-manager-cache: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: dist/release
+      - name: Install with install.sh and smoke test
+        if: runner.os == 'macOS'
+        run: |
+          export SHOAL_VERSION=$(node -p "require('./apps/cli/package.json').version")
+          export SHOAL_BIN_DIR="$RUNNER_TEMP/bin"
+          export SHOAL_DOWNLOAD_BASE="file://$GITHUB_WORKSPACE/dist/release"
+          sh packaging/install.sh
+          node scripts/smoke-binary.ts "$RUNNER_TEMP/bin/shoal"
+      - name: Install with irm | iex on Windows PowerShell 5.1 and smoke test
+        if: matrix.shell == 'powershell'
+        shell: powershell
+        run: ./scripts/ci-install-windows.ps1
+      - name: Install with irm | iex on PowerShell 7 and smoke test
+        if: matrix.shell == 'pwsh'
+        shell: pwsh
+        run: ./scripts/ci-install-windows.ps1
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, smoke]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: dist/release
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/release/* --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" --generate-notes

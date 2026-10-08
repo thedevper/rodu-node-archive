@@ -24,7 +24,10 @@ afterEach(() => {
 describe("shoal cli", () => {
   it("initialises a workspace and manages items end to end", async () => {
     expect(await run(["init", "--name", "alice", "--key", "med"], io)).toBe(0);
-    expect(statSync(join(dir, ".shoal", "config.json")).mode & 0o777).toBe(0o600);
+    // Windows has no POSIX modes; the file sits in the user's own profile there.
+    if (process.platform !== "win32") {
+      expect(statSync(join(dir, ".shoal", "config.json")).mode & 0o777).toBe(0o600);
+    }
 
     expect(
       await run(["add", "Crash", "on", "login", "--type", "bug", "--assignee", "me"], io),
@@ -47,7 +50,7 @@ describe("shoal cli", () => {
 
   it("prints domain errors with hints and a non-zero exit code", async () => {
     expect(await run(["ls"], io)).toBe(1);
-    expect(err.at(-1)).toContain('hint: Run "shoal init" first');
+    expect(err.at(-1)).toContain("hint: Create one in this folder: shoal init");
 
     await run(["init", "--name", "alice", "--key", "MED"], io);
     await run(["add", "Unowned"], io);
@@ -95,6 +98,33 @@ describe("shoal cli", () => {
     // Stopping twice (Ctrl+C after close) is harmless, and no signal handlers are left behind.
     await expect(server?.close()).resolves.toBeUndefined();
     expect(process.listenerCount("SIGINT")).toBe(sigints);
+  });
+
+  it("opens the board in the browser unless told not to", async () => {
+    await run(["init", "--name", "alice", "--key", "MED"], io);
+    const dist = join(dir, "dist");
+    mkdirSync(dist);
+    writeFileSync(join(dist, "index.html"), "<title>Shoal</title>");
+    const opened: string[] = [];
+    const servers: RunningServer[] = [];
+    const web = { ...io, env: { SHOAL_WEB_DIST: dist }, openUrl: (u: string) => opened.push(u) };
+    const onWebServer = (s: RunningServer) => servers.push(s);
+    expect(await run(["web", "--port", "0"], { ...web, onWebServer })).toBe(0);
+    expect(opened).toHaveLength(1);
+    expect(opened[0]).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/#token=/);
+    expect(await run(["web", "--port", "0", "--no-open"], { ...web, onWebServer })).toBe(0);
+    expect(opened).toHaveLength(1);
+    for (const s of servers) await s.close();
+  });
+
+  it("prints its version", async () => {
+    expect(await run(["--version"], io)).toBe(0);
+    expect(out.at(-1)).toMatch(/^shoal \d+\.\d+\.\d+$/);
+  });
+
+  it("tells a new user how to start", async () => {
+    expect(await run(["ls"], io)).toBe(1);
+    expect(err.at(-1)).toContain("shoal init --name");
   });
 
   it("rejects a bad --limit without a stack trace", async () => {
