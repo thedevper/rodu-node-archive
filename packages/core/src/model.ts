@@ -81,7 +81,7 @@ export interface Item {
   id: string;
   collectionId: string;
   number: number;
-  /** Human-readable short id, e.g. MED-12. */
+  /** Human-readable short id, e.g. DEMO-12. */
   key: string;
   type: ItemType;
   title: string;
@@ -163,7 +163,7 @@ export const NewItemSchema = z.object({
   priority: z.enum(PRIORITIES).default("none"),
   /** Principal name, id or "me". */
   assignee: z.string().min(1).optional(),
-  /** Parent item key (MED-3) or id. */
+  /** Parent item key (DEMO-3) or id. */
   parent: z.string().min(1).optional(),
   estimate: z.number().nonnegative().max(1000).optional(),
   dueAt: isoDate.optional(),

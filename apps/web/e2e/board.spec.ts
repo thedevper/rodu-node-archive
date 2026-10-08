@@ -23,7 +23,7 @@ test.describe.configure({ mode: "serial" });
 
 test.beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), "shoal-e2e-"));
-  shoal("init", "--name", "alice", "--key", "MED", "--title", "Medical app");
+  shoal("init", "--name", "alice", "--key", "DEMO", "--title", "Demo project");
   shoal("add", "Fix login crash", "--type", "bug", "--priority", "urgent", "--assignee", "me");
   shoal("add", "Write onboarding doc");
   shoal("add", "Export PDF report", "--priority", "high");
@@ -59,7 +59,7 @@ test("loads the board and drops the token from the address bar", async ({ page }
   for (const name of ["Backlog", "Todo", "In Progress", "In Review", "Done", "Canceled"]) {
     await expect(column(page, name)).toBeVisible();
   }
-  await expect.poll(() => keysIn(page, "Backlog")).toEqual(["MED-1", "MED-2", "MED-3"]);
+  await expect.poll(() => keysIn(page, "Backlog")).toEqual(["DEMO-1", "DEMO-2", "DEMO-3"]);
   expect(page.url()).not.toContain("token");
 });
 
@@ -67,30 +67,30 @@ test("shows the workflow refusal when moving an unassigned card into progress", 
   page,
 }) => {
   await page.goto(link);
-  await card(page, "MED-2").dragTo(column(page, "In Progress"));
+  await card(page, "DEMO-2").dragTo(column(page, "In Progress"));
   const alert = page.getByRole("alert");
   await expect(alert).toContainText('cannot move to "In Progress" yet');
   await expect(alert).toContainText("assign it first");
-  await expect.poll(() => keysIn(page, "Backlog")).toContain("MED-2");
+  await expect.poll(() => keysIn(page, "Backlog")).toContain("DEMO-2");
   await expect.poll(() => keysIn(page, "In Progress")).toEqual([]);
 });
 
 test("moves an assigned card to another column", async ({ page }) => {
   await page.goto(link);
-  await card(page, "MED-1").dragTo(column(page, "In Progress"));
-  await expect.poll(() => keysIn(page, "In Progress")).toEqual(["MED-1"]);
+  await card(page, "DEMO-1").dragTo(column(page, "In Progress"));
+  await expect.poll(() => keysIn(page, "In Progress")).toEqual(["DEMO-1"]);
   expect(shoal("ls", "status = 'In Progress'").trim()).toBe(
-    "MED-1 [In Progress] (urgent) Fix login crash",
+    "DEMO-1 [In Progress] (urgent) Fix login crash",
   );
 });
 
 test("reorders cards within a column and keeps the order after reload", async ({ page }) => {
   await page.goto(link);
-  await expect.poll(() => keysIn(page, "Backlog")).toEqual(["MED-2", "MED-3"]);
-  await card(page, "MED-3").dragTo(card(page, "MED-2"), { targetPosition: { x: 20, y: 2 } });
-  await expect.poll(() => keysIn(page, "Backlog")).toEqual(["MED-3", "MED-2"]);
+  await expect.poll(() => keysIn(page, "Backlog")).toEqual(["DEMO-2", "DEMO-3"]);
+  await card(page, "DEMO-3").dragTo(card(page, "DEMO-2"), { targetPosition: { x: 20, y: 2 } });
+  await expect.poll(() => keysIn(page, "Backlog")).toEqual(["DEMO-3", "DEMO-2"]);
   await page.reload();
-  await expect.poll(() => keysIn(page, "Backlog")).toEqual(["MED-3", "MED-2"]);
+  await expect.poll(() => keysIn(page, "Backlog")).toEqual(["DEMO-3", "DEMO-2"]);
 });
 
 test("filters with JQL-lite and reports bad queries", async ({ page }) => {
@@ -98,7 +98,7 @@ test("filters with JQL-lite and reports bad queries", async ({ page }) => {
   const filter = page.getByLabel("Filter");
   await filter.fill("priority = high");
   await filter.press("Enter");
-  await expect.poll(() => keysIn(page, "Backlog")).toEqual(["MED-3"]);
+  await expect.poll(() => keysIn(page, "Backlog")).toEqual(["DEMO-3"]);
   await filter.fill("nope = 1");
   await filter.press("Enter");
   await expect(page.getByRole("alert")).toContainText('unknown field "nope"');
@@ -106,14 +106,14 @@ test("filters with JQL-lite and reports bad queries", async ({ page }) => {
 
 test("edits an item and comments in the detail panel", async ({ page }) => {
   await page.goto(link);
-  await card(page, "MED-2").click();
-  const panel = page.getByRole("complementary", { name: "MED-2 details" });
+  await card(page, "DEMO-2").click();
+  const panel = page.getByRole("complementary", { name: "DEMO-2 details" });
   await panel.getByLabel("Assignee").selectOption("alice");
   await panel.getByLabel("New comment").fill("<b>not bold</b> and done soon");
   await panel.getByRole("button", { name: "Comment" }).click();
   await expect(panel.locator(".comment-body")).toHaveText("<b>not bold</b> and done soon");
   await panel.getByLabel("Status").selectOption("In Progress");
-  await expect.poll(() => keysIn(page, "In Progress")).toContain("MED-2");
+  await expect.poll(() => keysIn(page, "In Progress")).toContain("DEMO-2");
 });
 
 test("adds a card straight into a column, or not at all when the workflow refuses", async ({
@@ -136,7 +136,7 @@ test("adds a card straight into a column, or not at all when the workflow refuse
 
 test("a failing detail load reports once instead of retrying forever", async ({ page }) => {
   let loads = 0;
-  await page.route("**/api/items/MED-3", (route) => {
+  await page.route("**/api/items/DEMO-3", (route) => {
     loads++;
     return route.fulfill({
       status: 500,
@@ -145,7 +145,7 @@ test("a failing detail load reports once instead of retrying forever", async ({ 
     });
   });
   await page.goto(link);
-  await card(page, "MED-3").click();
+  await card(page, "DEMO-3").click();
   await expect(page.getByRole("alert")).toContainText("Internal error");
   await page.waitForTimeout(1000);
   expect(loads).toBe(1);

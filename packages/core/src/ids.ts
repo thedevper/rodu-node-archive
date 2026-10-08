@@ -25,7 +25,7 @@ export interface ParsedKey {
   number: number;
 }
 
-/** Parses "MED-12" (case-insensitive) into its collection key and number. */
+/** Parses "DEMO-12" (case-insensitive) into its collection key and number. */
 export function parseKey(ref: string): ParsedKey | null {
   const match = /^([A-Za-z][A-Za-z0-9]{1,9})-(\d{1,9})$/.exec(ref.trim());
   if (!match?.[1] || !match[2]) return null;

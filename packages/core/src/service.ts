@@ -124,7 +124,7 @@ export class ShoalService {
       throw new ShoalError(
         "invalid",
         `Invalid collection key "${input.key}"`,
-        "Use 2-10 letters or digits starting with a letter, e.g. MED",
+        "Use 2-10 letters or digits starting with a letter, e.g. DEMO",
       );
     }
     if (this.store.findCollection(key)) {
@@ -293,7 +293,7 @@ export class ShoalService {
     const found = isUuid(ref)
       ? this.store.getItem(ref)
       : this.store.getItemByKey(ref.trim().toUpperCase());
-    if (!found) throw new ShoalError("not_found", `No item "${ref}"`, "Use a key such as MED-12");
+    if (!found) throw new ShoalError("not_found", `No item "${ref}"`, "Use a key such as DEMO-12");
     return found;
   }
 

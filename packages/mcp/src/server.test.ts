@@ -17,7 +17,7 @@ beforeEach(async () => {
   const human = service.createPrincipal({ name: "alice", kind: "human" });
   const bot = service.createPrincipal({ name: "alice-claude", kind: "agent", ownerId: human.id });
   const actor = { principalId: human.id, viaAgentId: bot.id };
-  service.createCollection(actor, { key: "MED", name: "Medical app" });
+  service.createCollection(actor, { key: "DEMO", name: "Demo project" });
   service.createCollection(actor, { key: "OPS", name: "Operations" });
 
   const server = createShoalMcpServer(service, actor);
@@ -49,13 +49,13 @@ describe("shoal MCP server", () => {
     const created = await client.callTool({
       name: "create_items",
       arguments: {
-        collection: "MED",
+        collection: "DEMO",
         items: [{ title: "Crash on login", type: "bug", assignee: "me", priority: "urgent" }],
         idempotency_key: "plan-1",
       },
     });
     expect(created.isError).toBeFalsy();
-    expect(JSON.parse(text(created))[0]).toMatchObject({ key: "MED-1", assignee: "alice" });
+    expect(JSON.parse(text(created))[0]).toMatchObject({ key: "DEMO-1", assignee: "alice" });
 
     const mine = await client.callTool({ name: "get_my_work", arguments: {} });
     expect(JSON.parse(text(mine))).toHaveLength(1);
@@ -68,7 +68,7 @@ describe("shoal MCP server", () => {
 
     const moved = await client.callTool({
       name: "transition",
-      arguments: { ref: "MED-1", to: "In Progress" },
+      arguments: { ref: "DEMO-1", to: "In Progress" },
     });
     expect(JSON.parse(text(moved)).status).toBe("In Progress");
   });
@@ -76,11 +76,11 @@ describe("shoal MCP server", () => {
   it("returns rule violations as tool errors with a hint", async () => {
     await client.callTool({
       name: "create_items",
-      arguments: { collection: "MED", items: [{ title: "Unowned" }] },
+      arguments: { collection: "DEMO", items: [{ title: "Unowned" }] },
     });
     const refused = await client.callTool({
       name: "transition",
-      arguments: { ref: "MED-1", to: "In Progress" },
+      arguments: { ref: "DEMO-1", to: "In Progress" },
     });
     expect(refused.isError).toBe(true);
     expect(text(refused)).toMatch(/^rule_violation: .*\nhint: assign it first/);
@@ -95,37 +95,37 @@ describe("shoal MCP server", () => {
   it("plans a cycle atomically", async () => {
     await client.callTool({
       name: "create_items",
-      arguments: { collection: "MED", items: [{ title: "A" }, { title: "B" }] },
+      arguments: { collection: "DEMO", items: [{ title: "A" }, { title: "B" }] },
     });
     const failed = await client.callTool({
       name: "plan_cycle",
       arguments: {
-        collection: "MED",
+        collection: "DEMO",
         cycle: "Sprint 1",
-        items: ["MED-1", "MED-9"],
+        items: ["DEMO-1", "DEMO-9"],
         create_if_missing: true,
       },
     });
     expect(failed.isError).toBe(true);
     const report = await client.callTool({
       name: "cycle_report",
-      arguments: { collection: "MED", cycle: "Sprint 1" },
+      arguments: { collection: "DEMO", cycle: "Sprint 1" },
     });
     expect(report.isError).toBe(true);
 
     const planned = await client.callTool({
       name: "plan_cycle",
       arguments: {
-        collection: "MED",
+        collection: "DEMO",
         cycle: "Sprint 1",
-        items: ["MED-1", "MED-2"],
+        items: ["DEMO-1", "DEMO-2"],
         create_if_missing: true,
       },
     });
     expect(planned.isError).toBeFalsy();
     const after = await client.callTool({
       name: "cycle_report",
-      arguments: { collection: "MED", cycle: "Sprint 1" },
+      arguments: { collection: "DEMO", cycle: "Sprint 1" },
     });
     expect(JSON.parse(text(after)).total).toBe(2);
   });
@@ -133,14 +133,14 @@ describe("shoal MCP server", () => {
   it("refuses to plan items from another collection", async () => {
     await client.callTool({
       name: "create_items",
-      arguments: { collection: "MED", items: [{ title: "A" }] },
+      arguments: { collection: "DEMO", items: [{ title: "A" }] },
     });
     const result = await client.callTool({
       name: "plan_cycle",
-      arguments: { collection: "OPS", cycle: "S1", items: ["MED-1"], create_if_missing: true },
+      arguments: { collection: "OPS", cycle: "S1", items: ["DEMO-1"], create_if_missing: true },
     });
     expect(result.isError).toBe(true);
-    expect(text(result)).toContain("MED-1 is not in OPS");
+    expect(text(result)).toContain("DEMO-1 is not in OPS");
   });
 
   it("serves the schema resource", async () => {
