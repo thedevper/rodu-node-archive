@@ -13,9 +13,9 @@ One self-contained `rodu` binary (Node, SQLite and the web board inside); nothin
 | | |
 |---|---|
 | macOS (Homebrew) | `brew install TheDevper/tap/rodu` |
-| macOS (no Homebrew) | `curl -fsSL https://raw.githubusercontent.com/TheDevper/rodu/v0.2.0/packaging/install.sh \| sh` |
+| macOS (no Homebrew) | `curl -fsSL https://raw.githubusercontent.com/TheDevper/rodu/v0.2.1/packaging/install.sh \| sh` |
 | Windows (Scoop) | `scoop bucket add thedevper https://github.com/TheDevper/scoop-bucket` then `scoop install rodu` |
-| Windows (PowerShell) | `irm https://raw.githubusercontent.com/TheDevper/rodu/v0.2.0/packaging/install.ps1 \| iex` |
+| Windows (PowerShell) | `irm https://raw.githubusercontent.com/TheDevper/rodu/v0.2.1/packaging/install.ps1 \| iex` |
 
 **Upgrading from Shoal:** Rodu was called Shoal until 0.2.0.
 
