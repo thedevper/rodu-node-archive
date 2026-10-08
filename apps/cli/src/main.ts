@@ -1,6 +1,8 @@
 #!/usr/bin/env node
+import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import sea from "node:sea";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -9,6 +11,7 @@ import { type RunningServer, startWebServer } from "@shoal/http";
 import { createShoalMcpServer } from "@shoal/mcp";
 import { SqliteStore } from "@shoal/store-sqlite";
 import { z } from "zod";
+import { VERSION } from "./version.ts";
 
 const USAGE = `Usage: shoal <command> [options]
 
@@ -18,7 +21,8 @@ const USAGE = `Usage: shoal <command> [options]
   show <key>                 item with its context
   mv <key> <status>          move an item, e.g. shoal mv MED-3 "In Progress"
   mcp                        serve MCP over stdio for your agent
-  web [--port 4870]          open the kanban board in your browser (local only)
+  web [--port 4870] [--no-open]   open the kanban board in your browser (local only)
+  --version                  print the version
 
 The workspace is the nearest .shoal directory, or $SHOAL_DIR.`;
 
@@ -36,9 +40,21 @@ export interface Io {
   err: (line: string) => void;
   /** Receives the running web server, so tests can stop it. */
   onWebServer?: (server: RunningServer) => void;
+  /** Opens the board link in the user's browser; absent in tests. */
+  openUrl?: (url: string) => void;
 }
 
-const DEFAULT_WEB_DIST = resolve(dirname(fileURLToPath(import.meta.url)), "../../web/dist");
+// From a checkout the board is apps/web/dist; a single binary carries it as "web/…" assets.
+const defaultWebDist = () => resolve(dirname(fileURLToPath(import.meta.url)), "../../web/dist");
+
+function embeddedWeb(): Map<string, Uint8Array> | null {
+  if (!sea.isSea()) return null;
+  const files = new Map<string, Uint8Array>();
+  for (const key of sea.getAssetKeys()) {
+    if (key.startsWith("web/")) files.set(key.slice(3), new Uint8Array(sea.getRawAsset(key)));
+  }
+  return files.size > 0 ? files : null;
+}
 const DEFAULT_WEB_PORT = 4870;
 
 interface Workspace {
@@ -60,7 +76,11 @@ function findDir(io: Io): string | null {
 function open(io: Io, viaAgent: boolean): Workspace {
   const dir = findDir(io);
   if (!dir || !existsSync(join(dir, "config.json"))) {
-    throw new ShoalError("not_found", "No Shoal workspace here", 'Run "shoal init" first');
+    throw new ShoalError(
+      "not_found",
+      "No Shoal workspace here",
+      'Create one in this folder: shoal init --name <you> --key <KEY> --title "<project>"',
+    );
   }
   const config = ConfigSchema.parse(JSON.parse(readFileSync(join(dir, "config.json"), "utf8")));
   const store = new SqliteStore(join(dir, "shoal.db"));
@@ -128,15 +148,30 @@ function parseOptions(argv: string[]) {
       collection: { type: "string", short: "c" },
       limit: { type: "string" },
       port: { type: "string" },
+      "no-open": { type: "boolean" },
+      version: { type: "boolean", short: "v" },
       help: { type: "boolean", short: "h" },
     },
   });
 }
 
-async function serveWeb(io: Io, portOption: string | undefined): Promise<void> {
-  const distDir = io.env.SHOAL_WEB_DIST ? resolve(io.cwd, io.env.SHOAL_WEB_DIST) : DEFAULT_WEB_DIST;
-  if (!existsSync(join(distDir, "index.html"))) {
-    throw new ShoalError("not_found", "The web UI is not built", "Run: pnpm build:web");
+async function serveWeb(
+  io: Io,
+  portOption: string | undefined,
+  openBrowser: boolean,
+): Promise<void> {
+  const files = io.env.SHOAL_WEB_DIST ? null : embeddedWeb();
+  const distDir = files
+    ? null
+    : io.env.SHOAL_WEB_DIST
+      ? resolve(io.cwd, io.env.SHOAL_WEB_DIST)
+      : defaultWebDist();
+  if (distDir && !existsSync(join(distDir, "index.html"))) {
+    throw new ShoalError(
+      "not_found",
+      "The web UI is not built",
+      sea.isSea() ? "This shoal binary is incomplete: reinstall it" : "Run: pnpm build:web",
+    );
   }
   const port = portOption === undefined ? DEFAULT_WEB_PORT : Number(portOption);
   if (!Number.isInteger(port) || port < 0 || port > 65535) {
@@ -145,7 +180,7 @@ async function serveWeb(io: Io, portOption: string | undefined): Promise<void> {
   const ws = open(io, false);
   let server: RunningServer;
   try {
-    server = await startWebServer({ service: ws.service, actor: ws.actor, port, distDir });
+    server = await startWebServer({ service: ws.service, actor: ws.actor, port, distDir, files });
   } catch (error) {
     ws.store.close();
     if ((error as NodeJS.ErrnoException).code === "EADDRINUSE") {
@@ -172,8 +207,10 @@ async function serveWeb(io: Io, portOption: string | undefined): Promise<void> {
   process.once("SIGTERM", onSignal);
   io.out(`Shoal board for ${ws.dir}`);
   // The token rides in the fragment, which browsers never send to the server.
-  io.out(`Open: ${server.url}#token=${server.token}`);
+  const link = `${server.url}#token=${server.token}`;
+  io.out(`Open: ${link}`);
   io.out("Local only. Press Ctrl+C to stop.");
+  if (openBrowser) io.openUrl?.(link);
   io.onWebServer?.({ ...server, close: stop });
 }
 
@@ -195,6 +232,10 @@ export async function run(argv: string[], io: Io): Promise<number> {
   }
   const { values, positionals } = parsed;
   const [command, ...args] = positionals;
+  if (values.version) {
+    io.out(`shoal ${VERSION}`);
+    return 0;
+  }
   if (!command || values.help) {
     io.out(USAGE);
     return command || values.help ? 0 : 1;
@@ -209,7 +250,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
       return 0;
     }
     if (command === "web") {
-      await serveWeb(io, values.port);
+      await serveWeb(io, values.port, !values["no-open"]);
       return 0;
     }
     const ws = open(io, false);
@@ -266,12 +307,35 @@ export async function run(argv: string[], io: Io): Promise<number> {
   }
 }
 
+/** Best effort: the link is printed too, so a missing opener only costs a copy and paste. */
+function openUrl(url: string): void {
+  const [cmd, args] =
+    process.platform === "darwin"
+      ? ["open", [url]]
+      : process.platform === "win32"
+        ? // The default browser via the shell, without cmd.exe and its quoting rules.
+          ["rundll32.exe", ["url.dll,FileProtocolHandler", url]]
+        : ["xdg-open", [url]];
+  try {
+    const child = spawn(cmd, args as string[], {
+      stdio: "ignore",
+      detached: true,
+      windowsHide: true,
+    });
+    child.on("error", () => {});
+    child.unref();
+  } catch {
+    // The printed link still works.
+  }
+}
+
 if (import.meta.main) {
   const io: Io = {
     cwd: process.cwd(),
     env: process.env,
     out: (line) => process.stdout.write(`${line}\n`),
     err: (line) => process.stderr.write(`${line}\n`),
+    openUrl,
   };
   const code = await run(process.argv.slice(2), io);
   if (code !== 0) process.exitCode = code;

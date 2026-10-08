@@ -23,6 +23,8 @@ export interface WebServerOptions {
   port?: number;
   /** Built web UI to serve at /; null serves only the API. */
   distDir?: string | null;
+  /** The built UI held in memory ("/index.html" → bytes), as a single binary carries it. */
+  files?: ReadonlyMap<string, Uint8Array> | null;
   /** Fixed token for tests; a random one is generated otherwise. */
   token?: string;
 }
@@ -129,6 +131,7 @@ export async function startWebServer(options: WebServerOptions): Promise<Running
   const token = options.token ?? randomBytes(32).toString("base64url");
   const tokenDigest = digest(token);
   const distDir = options.distDir ? resolve(options.distDir) : null;
+  const files = options.files ?? null;
   let allowedHosts: string[] = [];
 
   const name = (id: string | null): string | null =>
@@ -287,14 +290,41 @@ export async function startWebServer(options: WebServerOptions): Promise<Running
     throw new HttpError(404, "not_found", `No route ${method} ${path}`);
   }
 
+  /** The file for a URL path from the in-memory UI: exact names only, so no traversal. */
+  function embedded(decoded: string): { file: string; content: Uint8Array } | null {
+    if (!files) return null;
+    const content = files.get(decoded);
+    if (content) return { file: decoded, content };
+    if (extname(decoded)) throw new HttpError(404, "not_found", "Not found");
+    const index = files.get("/index.html");
+    return index ? { file: "/index.html", content: index } : null;
+  }
+
   async function serveStatic(path: string, res: ServerResponse): Promise<void> {
-    if (!distDir) throw new HttpError(404, "not_found", "The web UI is not built");
+    if (!distDir && !files) throw new HttpError(404, "not_found", "The web UI is not built");
     let decoded: string;
     try {
       decoded = decodeURIComponent(path);
     } catch {
       throw new HttpError(400, "invalid", "Bad path");
     }
+    const found = files ? embedded(decoded) : await fromDisk(distDir as string, decoded);
+    if (!found) throw new HttpError(404, "not_found", "Not found");
+    const { file, content } = found;
+    res.writeHead(200, {
+      ...SECURITY_HEADERS,
+      "Content-Type": MIME[extname(file)] ?? "application/octet-stream",
+      "Cache-Control": file.endsWith("index.html")
+        ? "no-store"
+        : "public, max-age=31536000, immutable",
+    });
+    res.end(content);
+  }
+
+  async function fromDisk(
+    distDir: string,
+    decoded: string,
+  ): Promise<{ file: string; content: Uint8Array } | null> {
     const target = resolve(distDir, `.${decoded}`);
     if (target !== distDir && !target.startsWith(distDir + sep)) {
       throw new HttpError(404, "not_found", "Not found");
@@ -307,15 +337,7 @@ export async function startWebServer(options: WebServerOptions): Promise<Running
       file = resolve(distDir, "index.html");
     }
     const content = await readFile(file).catch(() => null);
-    if (!content) throw new HttpError(404, "not_found", "Not found");
-    res.writeHead(200, {
-      ...SECURITY_HEADERS,
-      "Content-Type": MIME[extname(file)] ?? "application/octet-stream",
-      "Cache-Control": file.endsWith("index.html")
-        ? "no-store"
-        : "public, max-age=31536000, immutable",
-    });
-    res.end(content);
+    return content ? { file, content } : null;
   }
 
   function authorized(req: IncomingMessage): boolean {

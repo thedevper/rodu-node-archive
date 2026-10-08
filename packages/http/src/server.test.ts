@@ -266,3 +266,30 @@ describe("board API", () => {
     expect((await send("DELETE", "/api/items/MED-1")).status).toBe(405);
   });
 });
+
+describe("embedded UI", () => {
+  it("serves files held in memory, as a single binary does", async () => {
+    await server.close();
+    const service = new ShoalService(new SqliteStore());
+    const human = service.createPrincipal({ name: "bob", kind: "human" });
+    const files = new Map([
+      ["/index.html", new TextEncoder().encode("<!doctype html><title>Embedded</title>")],
+      ["/assets/app.js", new TextEncoder().encode("console.log(2)")],
+    ]);
+    server = await startWebServer({
+      service,
+      actor: { principalId: human.id, viaAgentId: null },
+      files,
+      token: TOKEN,
+    });
+    const page = await send("GET", "/");
+    expect(page.body).toContain("<title>Embedded</title>");
+    expect(page.headers["cache-control"]).toBe("no-store");
+    const js = await send("GET", "/assets/app.js");
+    expect(js.body).toBe("console.log(2)");
+    expect(js.headers["content-type"]).toContain("javascript");
+    expect((await send("GET", "/board/route")).body).toContain("Embedded");
+    expect((await send("GET", "/missing.js")).status).toBe(404);
+    expect((await send("GET", "/%2e%2e/%2e%2e/etc/passwd")).body).not.toContain("root:");
+  });
+});
