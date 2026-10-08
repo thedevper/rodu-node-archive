@@ -74,6 +74,10 @@
       throw
     }
     if ($old) { Remove-Item -Force -LiteralPath $old -ErrorAction SilentlyContinue }
+    # The licences of Rodu and of the Node.js and npm code built into it travel with the binary.
+    foreach ($n in 'LICENSE', 'NOTICE', 'THIRD-PARTY-NOTICES.txt') {
+      Copy-Item -Force (Join-Path $Tmp "out\$n") (Join-Path $InstallDir $n)
+    }
   } finally {
     Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue
   }

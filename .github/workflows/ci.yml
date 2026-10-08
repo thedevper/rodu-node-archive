@@ -108,7 +108,9 @@ jobs:
           export RODU_VERSION=$(node -p "require('./apps/cli/package.json').version")
           export RODU_BIN_DIR="$RUNNER_TEMP/bin"
           export RODU_DOWNLOAD_BASE="file://$GITHUB_WORKSPACE/dist/release"
+          export XDG_DATA_HOME="$RUNNER_TEMP/share"
           sh packaging/install.sh
+          for n in LICENSE NOTICE THIRD-PARTY-NOTICES.txt; do test -s "$XDG_DATA_HOME/rodu/$n"; done
           node scripts/smoke-binary.ts "$RUNNER_TEMP/bin/rodu"
       - name: Install with irm | iex on Windows PowerShell 5.1 and smoke test
         if: matrix.shell == 'powershell'
