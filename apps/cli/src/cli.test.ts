@@ -84,8 +84,23 @@ describe("rodu cli", () => {
     expect(await run(["ls"], { ...io, cwd: sub })).toBe(1);
     expect(err.at(-1)).toContain("still holds shoal.db-wal");
 
+    // A copied shoal.db beside rodu.db still hides the WAL left next to it.
+    writeFileSync(join(dir, ".rodu", "shoal.db"), "");
+    expect(await run(["ls"], { ...io, cwd: sub })).toBe(1);
+    expect(err.at(-1)).toContain("still holds shoal.db-wal");
+
     rmSync(join(dir, ".rodu", "shoal.db-wal"));
+    rmSync(join(dir, ".rodu", "shoal.db"));
     expect(await run(["ls"], { ...io, cwd: sub })).toBe(0);
+  });
+
+  it("refuses init beside an unmoved Shoal workspace even with RODU_DIR", async () => {
+    mkdirSync(join(dir, ".shoal"));
+    writeFileSync(join(dir, ".shoal", "config.json"), "{}");
+    const env = { RODU_DIR: ".rodu" };
+    expect(await run(["init", "--name", "alice", "--key", "DEMO"], { ...io, env })).toBe(1);
+    expect(err.at(-1)).toContain("is from Shoal");
+    expect(existsSync(join(dir, ".rodu"))).toBe(false);
   });
 
   it("prints domain errors with hints and a non-zero exit code", async () => {

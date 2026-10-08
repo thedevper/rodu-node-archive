@@ -5,7 +5,7 @@
 # The URL names a release tag, so what runs is the reviewed script of that release, not
 # whatever is on main at the time.
 #
-# $env:RODU_VERSION = '0.1.0'       a specific release instead of the latest
+# $env:RODU_VERSION = '0.2.0'       a specific release instead of the latest
 # $env:RODU_INSTALL_DIR = 'C:\...'  where to put rodu.exe (default %LOCALAPPDATA%\Programs\rodu)
 # $env:RODU_DOWNLOAD_BASE = '...'   where the release files are (a URL or folder, for testing)
 

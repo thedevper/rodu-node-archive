@@ -5,7 +5,7 @@
 #
 # The URL names a release tag, so what runs is the reviewed script of that release.
 #
-# RODU_VERSION=0.1.0       a specific release instead of the latest
+# RODU_VERSION=0.2.0       a specific release instead of the latest
 # RODU_BIN_DIR=~/bin       where to put rodu (default ~/.local/bin)
 # RODU_DOWNLOAD_BASE=URL   where the release files are (for testing a local build)
 set -eu

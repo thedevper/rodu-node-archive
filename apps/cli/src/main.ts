@@ -102,10 +102,11 @@ function open(io: Io, viaAgent: boolean): Workspace {
       'Create one in this folder: rodu init --name <you> --key <KEY> --title "<project>"',
     );
   }
-  const leftover = ["shoal.db", "shoal.db-wal", "shoal.db-shm"].find((f) =>
-    existsSync(join(dir, f)),
+  // Old WAL files always hold changes; an old database only matters when there is no new one.
+  const leftover = ["shoal.db-wal", "shoal.db-shm", "shoal.db"].find(
+    (f) => existsSync(join(dir, f)) && (f !== "shoal.db" || !existsSync(join(dir, "rodu.db"))),
   );
-  if (leftover && (leftover !== "shoal.db" || !existsSync(join(dir, "rodu.db")))) {
+  if (leftover) {
     throw new RoduError(
       "conflict",
       `${dir} still holds ${leftover} from Shoal, Rodu's old name`,
@@ -129,7 +130,7 @@ function init(io: Io, values: Record<string, string | boolean | undefined>): voi
       "e.g. rodu init --name your-name --key DEMO",
     );
   }
-  if (!io.env.RODU_DIR) refuseShoal(resolve(io.cwd));
+  refuseShoal(resolve(io.cwd));
   const dir = io.env.RODU_DIR ? resolve(io.cwd, io.env.RODU_DIR) : join(io.cwd, ".rodu");
   if (existsSync(join(dir, "config.json"))) {
     throw new RoduError("conflict", `A workspace already exists at ${dir}`);
