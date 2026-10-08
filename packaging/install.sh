@@ -1,7 +1,9 @@
 #!/bin/sh
 # Installs the shoal binary on macOS without Homebrew:
 #
-#   curl -fsSL https://raw.githubusercontent.com/TheDevper/shoal/main/packaging/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/TheDevper/shoal/v<version>/packaging/install.sh | sh
+#
+# The URL names a release tag, so what runs is the reviewed script of that release.
 #
 # SHOAL_VERSION=0.1.0       a specific release instead of the latest
 # SHOAL_BIN_DIR=~/bin       where to put shoal (default ~/.local/bin)

@@ -44,6 +44,9 @@ jobs:
         run: |
           version=$(node -p "require('./apps/cli/package.json').version")
           [ "$GITHUB_REF_NAME" = "v$version" ] || { echo "tag $GITHUB_REF_NAME != v$version"; exit 1; }
+          # The install commands in the README must point at this release's scripts.
+          [ "$(grep -c "TheDevper/shoal/v$version/packaging/install" README.md)" = 2 ] ||
+            { echo "README install URLs do not name v$version"; exit 1; }
       - run: pnpm build:binaries
       - uses: actions/upload-artifact@v4
         with:
@@ -104,6 +107,8 @@ jobs:
           $running = Start-Process -PassThru -WindowStyle Hidden -WorkingDirectory $ws "$env:SHOAL_INSTALL_DIR\shoal.exe" -ArgumentList 'web', '--no-open', '--port', '0'
           Start-Sleep -Seconds 2
           if ($running.HasExited) { throw 'shoal web did not keep running' }
+          Get-Content -Raw packaging/install.ps1 | Invoke-Expression
+          # Again, while the first renamed copy is still running.
           Get-Content -Raw packaging/install.ps1 | Invoke-Expression
           Stop-Process -Id $running.Id -Force
           shoal --version

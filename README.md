@@ -13,11 +13,12 @@ One self-contained `shoal` binary (Node, SQLite and the web board inside); nothi
 | | |
 |---|---|
 | macOS (Homebrew) | `brew install TheDevper/tap/shoal` |
-| macOS (no Homebrew) | `curl -fsSL https://raw.githubusercontent.com/TheDevper/shoal/main/packaging/install.sh \| sh` |
+| macOS (no Homebrew) | `curl -fsSL https://raw.githubusercontent.com/TheDevper/shoal/v0.1.0/packaging/install.sh \| sh` |
 | Windows (Scoop) | `scoop bucket add thedevper https://github.com/TheDevper/scoop-bucket` then `scoop install shoal` |
-| Windows (PowerShell) | `irm https://raw.githubusercontent.com/TheDevper/shoal/main/packaging/install.ps1 \| iex` |
+| Windows (PowerShell) | `irm https://raw.githubusercontent.com/TheDevper/shoal/v0.1.0/packaging/install.ps1 \| iex` |
 
-Then, in any folder you want to track work in:
+The script URLs name a release tag, so they run that release's reviewed script; each release
+updates them. Then, in any folder you want to track work in:
 
 ```sh
 shoal init --name alice --key MED --title "Medical app"

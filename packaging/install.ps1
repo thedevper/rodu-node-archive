@@ -1,6 +1,9 @@
 # Installs the shoal binary on Windows (PowerShell 5.1 or 7):
 #
-#   irm https://raw.githubusercontent.com/TheDevper/shoal/main/packaging/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/TheDevper/shoal/v<version>/packaging/install.ps1 | iex
+#
+# The URL names a release tag, so what runs is the reviewed script of that release, not
+# whatever is on main at the time.
 #
 # $env:SHOAL_VERSION = '0.1.0'       a specific release instead of the latest
 # $env:SHOAL_INSTALL_DIR = 'C:\...'  where to put shoal.exe (default %LOCALAPPDATA%\Programs\shoal)
@@ -48,12 +51,23 @@
     Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $Tmp 'out') -Force
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
     $exe = Join-Path $InstallDir 'shoal.exe'
-    # A running shoal.exe (say, `shoal mcp` under an agent) cannot be overwritten but can be renamed.
-    $old = "$exe.old"
-    Remove-Item -Force -LiteralPath $old -ErrorAction SilentlyContinue
-    if (Test-Path -LiteralPath $exe) { Move-Item -Force -LiteralPath $exe -Destination $old }
-    Copy-Item -Force (Join-Path $Tmp 'out\shoal.exe') $exe
-    Remove-Item -Force -LiteralPath $old -ErrorAction SilentlyContinue
+    # A running shoal.exe (say, `shoal mcp` under an agent) cannot be overwritten but can be
+    # renamed. Each run uses a fresh name, since an older renamed copy may still be running too.
+    Get-ChildItem -LiteralPath $InstallDir -Filter 'shoal.exe.old-*' |
+      Remove-Item -Force -ErrorAction SilentlyContinue
+    $old = $null
+    if (Test-Path -LiteralPath $exe) {
+      $old = "$exe.old-" + [Guid]::NewGuid().ToString('N')
+      Move-Item -LiteralPath $exe -Destination $old
+    }
+    try {
+      Copy-Item -Force (Join-Path $Tmp 'out\shoal.exe') $exe
+    } catch {
+      # Put the working binary back rather than leave the user without shoal.
+      if ($old) { Move-Item -Force -LiteralPath $old -Destination $exe -ErrorAction SilentlyContinue }
+      throw
+    }
+    if ($old) { Remove-Item -Force -LiteralPath $old -ErrorAction SilentlyContinue }
   } finally {
     Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue
   }
